@@ -98,6 +98,16 @@ private:
 
     void set_multiplexer(std::shared_ptr<detail::multiplexer> multiplexer);
 
+    virtual std::unique_ptr<receive_input_type> dequeue() {
+        if (receive_input_queue.empty()) {
+            return nullptr;
+        }
+
+        auto ret = std::move(receive_input_queue.front());
+        receive_input_queue.pop();
+        return ret;
+    }
+
     virtual void enqueue(const boost::system::error_code& error,
                          std::size_t bytes_transferred,
                          std::shared_ptr<detail::buffer> datagram)
@@ -119,8 +129,8 @@ private:
             process_receive(error,
                             bytes_transferred,
                             datagram,
-                            std::get<0>(*input),
-                            std::get<1>(*input));
+                            std::get<0>(*input) /* buffer sequence */,
+                            std::get<1>(*input) /* handler */);
         }
     }
 
@@ -163,9 +173,6 @@ private:
 private:
     std::shared_ptr<detail::multiplexer> multiplexer;
 
-    using read_handler_type = std::function<void (const boost::system::error_code&, std::size_t)>;
-    using receive_input_type = std::tuple<boost::asio::mutable_buffer, read_handler_type>;
-    using receive_output_type = std::tuple<boost::system::error_code, std::size_t, std::shared_ptr<detail::buffer>>;
     std::queue<std::unique_ptr<receive_input_type>> receive_input_queue;
     std::queue<std::unique_ptr<receive_output_type>> receive_output_queue;
 };

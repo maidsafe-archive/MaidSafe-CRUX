@@ -29,13 +29,13 @@ add_definitions(-std=c++11)
 ###############################################################################
 
 # FIXME: Probably ok to use older version
-find_package(Boost 1.54.0 COMPONENTS coroutine context system thread)
+find_package(Boost 1.54.0 COMPONENTS coroutine context system thread unit_test_framework)
 if (NOT ${Boost_FOUND})
   message(FATAL_ERROR "Boost not found (or too old)")
 endif()
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
-set(TEST_LIBS ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+set(TEST_LIBS ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_LIBRARIES})
 
 ###############################################################################
 # Crux package
@@ -54,5 +54,5 @@ add_library(crux STATIC
 # Submodules
 ###############################################################################
 
-#add_subdirectory(test)
+add_subdirectory(test)
 add_subdirectory(example)
