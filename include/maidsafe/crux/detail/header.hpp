@@ -8,11 +8,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef MAIDSAFE_CRUX_DETAIL_BUFFER_HPP
-#define MAIDSAFE_CRUX_DETAIL_BUFFER_HPP
+#ifndef MAIDSAFE_CRUX_DETAIL_HEADER_HPP
+#define MAIDSAFE_CRUX_DETAIL_HEADER_HPP
 
-#include <algorithm>
-#include <vector>
+#include <array>
 
 namespace maidsafe
 {
@@ -21,10 +20,13 @@ namespace crux
 namespace detail
 {
 
-using buffer = std::vector<char>;
+typedef std::array<char, 32> header_data_type;
+
+class header {
+};
 
 } // namespace detail
 } // namespace crux
 } // namespace maidsafe
 
-#endif // MAIDSAFE_CRUX_DETAIL_BUFFER_HPP
+#endif // MAIDSAFE_CRUX_DETAIL_HEADER_HPP

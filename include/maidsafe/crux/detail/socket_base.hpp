@@ -18,6 +18,9 @@
 #include <boost/asio/ip/udp.hpp>
 
 #include <maidsafe/crux/detail/buffer.hpp>
+#include <maidsafe/crux/detail/header.hpp>
+#include <maidsafe/crux/detail/receive_input_type.hpp>
+#include <maidsafe/crux/detail/receive_output_type.hpp>
 
 namespace maidsafe
 {
@@ -38,23 +41,23 @@ public:
 protected:
     friend class multiplexer;
 
-    using read_handler_type   = std::function<void (const boost::system::error_code&, std::size_t)>;
-    using receive_input_type  = std::tuple<boost::asio::mutable_buffer, read_handler_type>;
-    using receive_output_type = std::tuple<boost::system::error_code, std::size_t, std::shared_ptr<detail::buffer>>;
-
     void remote_endpoint(const endpoint_type& r) { remote = r; }
+
     virtual void enqueue(const boost::system::error_code&,
                          std::size_t bytes_transferred,
                          std::shared_ptr<detail::buffer>) = 0;
 
     virtual std::unique_ptr<receive_input_type> dequeue() = 0;
 
+    virtual void process_receive( const boost::system::error_code&
+                                , const header_data_type&
+                                , std::size_t
+                                , detail::receive_input_type::read_handler_type&&) = 0;
+
 protected:
     endpoint_type remote;
 };
 
-} // namespace detail
-} // namespace crux
-} // namespace maidsafe
+}}} // namespace maidsafe::crux::detail
 
 #endif // MAIDSAFE_CRUX_DETAIL_SOCKET_BASE_HPP

@@ -17,9 +17,11 @@
 
 #include <boost/asio/basic_io_object.hpp>
 #include <boost/asio/async_result.hpp>
+#include <boost/asio/buffer.hpp>
 
 #include <maidsafe/crux/detail/socket_base.hpp>
 #include <maidsafe/crux/detail/service.hpp>
+#include <maidsafe/crux/detail/header.hpp>
 #include <maidsafe/crux/endpoint.hpp>
 #include <maidsafe/crux/resolver.hpp>
 
@@ -35,8 +37,9 @@ class socket
     : public detail::socket_base,
       public boost::asio::basic_io_object<detail::service>
 {
-    using service_type = detail::service;
-    using resolver_type = crux::resolver;
+    using service_type      = detail::service;
+    using resolver_type     = crux::resolver;
+    using read_handler_type = detail::receive_input_type::read_handler_type;
 
 public:
     // Construct a socket
@@ -98,7 +101,7 @@ private:
 
     void set_multiplexer(std::shared_ptr<detail::multiplexer> multiplexer);
 
-    virtual std::unique_ptr<receive_input_type> dequeue() {
+    std::unique_ptr<detail::receive_input_type> dequeue() override {
         if (receive_input_queue.empty()) {
             return nullptr;
         }
@@ -108,17 +111,20 @@ private:
         return ret;
     }
 
-    virtual void enqueue(const boost::system::error_code& error,
-                         std::size_t bytes_transferred,
-                         std::shared_ptr<detail::buffer> datagram)
+    void enqueue(const boost::system::error_code& error,
+                 std::size_t bytes_transferred,
+                 std::shared_ptr<detail::buffer> datagram) override
     {
         // FIXME: Thread-safe
         if (receive_input_queue.empty())
         {
+            using detail::receive_output_type;
+
             std::unique_ptr<receive_output_type>
-                operation(new receive_output_type(error,
-                                                  bytes_transferred,
-                                                  datagram));
+                operation(new receive_output_type({ error
+                                                  , bytes_transferred
+                                                  , datagram }));
+
             receive_output_queue.emplace(std::move(operation));
         }
         else
@@ -126,12 +132,20 @@ private:
             auto input = std::move(receive_input_queue.front());
             receive_input_queue.pop();
 
-            process_receive(error,
-                            bytes_transferred,
-                            datagram,
-                            std::get<0>(*input) /* buffer sequence */,
-                            std::get<1>(*input) /* handler */);
+            copy_buffers_and_process_receive(error,
+                                             bytes_transferred,
+                                             datagram,
+                                             input->buffers,
+                                             std::move(input->handler));
         }
+    }
+
+    void process_receive( const boost::system::error_code& error
+                        , const detail::header_data_type&  header_data
+                        , std::size_t                      bytes_received
+                        , read_handler_type&&              handler) override
+    {
+        handler(error, bytes_received);
     }
 
 private:
@@ -162,19 +176,18 @@ private:
                               std::shared_ptr<resolver_type> resolver,
                               ConnectHandler&& handler);
 
-    template <typename MutableBufferSequence,
-              typename ReadHandler>
-    void process_receive(const boost::system::error_code& error,
-                         std::size_t bytes_transferred,
-                         std::shared_ptr<detail::buffer> datagram,
-                         const MutableBufferSequence&,
-                         ReadHandler&&);
+    template <typename MutableBufferSequence>
+    void copy_buffers_and_process_receive(const boost::system::error_code& error,
+                                          std::size_t bytes_transferred,
+                                          std::shared_ptr<detail::buffer> datagram,
+                                          const MutableBufferSequence&,
+                                          read_handler_type&&);
 
 private:
     std::shared_ptr<detail::multiplexer> multiplexer;
 
-    std::queue<std::unique_ptr<receive_input_type>> receive_input_queue;
-    std::queue<std::unique_ptr<receive_output_type>> receive_output_queue;
+    std::queue<std::unique_ptr<detail::receive_input_type>> receive_input_queue;
+    std::queue<std::unique_ptr<detail::receive_output_type>> receive_output_queue;
 };
 
 } // namespace crux
@@ -383,46 +396,73 @@ socket::async_receive(const MutableBufferSequence& buffers,
     {
         if (receive_output_queue.empty())
         {
-            std::unique_ptr<receive_input_type> operation(new receive_input_type(buffers, std::move(handler)));
+            using detail::receive_input_type;
+
+            std::unique_ptr<receive_input_type> operation
+                (new receive_input_type(buffers, std::move(handler)));
+
             receive_input_queue.emplace(std::move(operation));
 
             multiplexer->start_receive();
         }
         else
         {
+            // We already have data in the output queue.
             get_io_service().post
                 ([this, buffers, handler] () mutable
                  {
                      // FIXME: Thread-safe
                      auto output = std::move(this->receive_output_queue.front());
                      this->receive_output_queue.pop();
-                     this->process_receive(std::get<0>(*output),
-                                           std::get<1>(*output),
-                                           std::get<2>(*output),
-                                           buffers,
-                                           handler);
+                     this->copy_buffers_and_process_receive(output->error,
+                                                            output->size,
+                                                            output->data,
+                                                            buffers,
+                                                            handler);
                  });
         }
     }
     return result.get();
 }
 
-template <typename MutableBufferSequence,
-          typename ReadHandler>
-void socket::process_receive(const boost::system::error_code& error,
-                             std::size_t bytes_transferred,
-                             std::shared_ptr<detail::buffer> datagram,
-                             const MutableBufferSequence& buffers,
-                             ReadHandler&& handler)
+template <typename MutableBufferSequence>
+void socket::copy_buffers_and_process_receive
+        ( const boost::system::error_code& error
+        , std::size_t                      bytes_transferred
+        , std::shared_ptr<detail::buffer>  datagram
+        , const MutableBufferSequence&     user_buffers
+        , read_handler_type&&              handler)
 {
-    auto length = std::min(boost::asio::buffer_size(buffers), bytes_transferred);
+    using detail::header_data_type;
+    namespace asio = boost::asio;
+    constexpr size_t header_size = std::tuple_size<header_data_type>::value;
+
+    auto length = std::min( asio::buffer_size(user_buffers) + header_size
+                          , bytes_transferred);
+
+    size_t payload_size = 0;
+
+    header_data_type header_data;
+
     if (!error)
     {
-        boost::asio::buffer_copy(buffers,
-                                 boost::asio::buffer(*datagram),
-                                 length);
+        if (length < header_size) {
+            assert(0 && "Corrupted packet or someone is being silly");
+            return;
+        }
+
+        payload_size = length - header_size;
+
+        asio::buffer_copy(asio::buffer(header_data, header_data.size()),
+                          asio::buffer(*datagram),
+                          header_size);
+        
+        asio::buffer_copy(user_buffers,
+                          asio::buffer(*datagram) + header_size,
+                          payload_size);
     }
-    handler(error, length);
+
+    process_receive(error, header_data, payload_size, std::move(handler));
 }
 
 template <typename ConstBufferSequence,
@@ -447,14 +487,31 @@ socket::async_send(const ConstBufferSequence& buffers,
     }
     else
     {
+        using const_buffer = boost::asio::const_buffer;
+
+        static detail::header_data_type dummy_header;
+
+        std::vector<const_buffer> buffers_with_header;
+        buffers_with_header.emplace_back(const_buffer(&dummy_header.front()
+                                                     , dummy_header.size()));
+
+        for (const auto& buffer : buffers) {
+            buffers_with_header.emplace_back(buffer);
+        }
+
         multiplexer->async_send_to
-            (buffers,
+            (buffers_with_header,
              remote,
              [handler] (const boost::system::error_code& error,
                         std::size_t bytes_transferred) mutable
              {
+                 constexpr size_t header_size
+                   = std::tuple_size<detail::header_data_type>::value;
+
+                 assert(bytes_transferred >= header_size);
+
                  // Process send
-                 handler(error, bytes_transferred);
+                 handler(error, bytes_transferred - header_size);
              });
     }
     return result.get();

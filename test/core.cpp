@@ -39,6 +39,9 @@ BOOST_AUTO_TEST_CASE(sigle_send_and_receive)
     std::vector<char>  rx_data(message_text.size());
     std::vector<char>  tx_data(message_text.begin(), message_text.end());
 
+    bool tested_receive = false;
+    bool tested_send    = false;
+
     acceptor.async_accept(server_socket, [&](error_code error) {
             BOOST_ASSERT(!error);
 
@@ -46,8 +49,10 @@ BOOST_AUTO_TEST_CASE(sigle_send_and_receive)
                 asio::buffer(rx_data),
                 [&](const error_code& error, size_t size) {
                   BOOST_ASSERT(!error);
-                  BOOST_ASSERT(size == rx_data.size());
+                  BOOST_REQUIRE_EQUAL(size, rx_data.size());
                   BOOST_ASSERT(rx_data == tx_data);
+
+                  tested_receive = true;
                 });
             });
 
@@ -60,10 +65,14 @@ BOOST_AUTO_TEST_CASE(sigle_send_and_receive)
                   [&](error_code error, size_t size) {
                     BOOST_REQUIRE(!error);
                     BOOST_REQUIRE_EQUAL(size, tx_data.size());
+
+                    tested_send = true;
                   });
             });
 
     ios.run();
+
+    BOOST_REQUIRE(tested_receive && tested_send);
 }
 
 BOOST_AUTO_TEST_CASE(double_send_and_receive)

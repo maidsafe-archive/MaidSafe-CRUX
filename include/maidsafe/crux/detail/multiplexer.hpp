@@ -239,18 +239,14 @@ inline
 void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
+    using socket_type = decltype(socket);
+
     // FIXME: Handle error == operation_aborted
-
-    if (--receive_calls  > 0)
-    {
-        do_start_receive();
-    }
-
     // FIXME: Parse datagram (and only enqueue payload packets)
 
     auto recipient = sockets.find(remote_endpoint);
 
-    decltype(socket)::bytes_readable command(true);
+    socket_type::bytes_readable command(true);
     socket.io_control(command);
     std::size_t datagram_size = command.get();
 
@@ -263,7 +259,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         // FIXME: Make async.
         datagram_size = socket.receive_from
             (boost::asio::buffer(datagram->data(), datagram->capacity()),
-             remote_endpoint, decltype(socket)::message_flags(), error);
+             remote_endpoint, socket_type::message_flags(), error);
 
         // Unknown endpoint
         if (!acceptor_queue.empty())
@@ -283,32 +279,39 @@ void multiplexer::process_peek(boost::system::error_code error,
     }
     else
     {
-        auto input = (*recipient).second->dequeue();
+        auto& crux_socket = *(*recipient).second;
+        auto  input       = crux_socket.dequeue();
 
-        if (input) {
-            auto& buffers = std::get<0>(*input);
-            auto& handler = std::get<1>(*input);
+        if (input)
+        {
+            datagram_size = socket.receive_from( input->buffers
+                                               , remote_endpoint
+                                               , 0
+                                               , error);
 
-            datagram_size = socket.receive_from
-                (boost::asio::buffer(buffers), remote_endpoint, 0, error);
-
-            auto length = std::min(boost::asio::buffer_size(buffers),
-                                   datagram_size);
-
-            handler(error, length);
+            crux_socket.process_receive( error
+                                       , input->header_data
+                                       , datagram_size
+                                       , std::move(input->handler) );
         }
-        else {
+        else
+        {
             auto datagram = std::make_shared<buffer_type>(datagram_size);
 
             datagram_size = socket.receive_from
                 (boost::asio::buffer(datagram->data(), datagram->capacity()),
                  remote_endpoint,
-                 decltype(socket)::message_flags(),
+                 socket_type::message_flags(),
                  error);
 
             // Enqueue datagram on socket
-            (*recipient).second->enqueue(error, datagram_size, datagram);
+            crux_socket.enqueue(error, datagram_size, datagram);
         }
+    }
+
+    if (--receive_calls  > 0)
+    {
+        do_start_receive();
     }
 }
 
