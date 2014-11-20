@@ -223,7 +223,7 @@ inline void multiplexer::do_start_receive()
     // We need to read with at least one zero sized buffer to
     // get the remote_endpoint information.
     socket.async_receive_from
-        (boost::asio::buffer(static_cast<char*>(nullptr), sizeof(0)),
+        (boost::asio::buffer(static_cast<char*>(nullptr), 0),
          next_remote_endpoint,
          decltype(socket)::message_peek,
          [self]
@@ -285,6 +285,9 @@ void multiplexer::process_peek(boost::system::error_code error,
 
         if (input)
         {
+            constexpr size_t header_size
+                = std::tuple_size<detail::header_data_type>::value;
+
             datagram_size = socket.receive_from( input->buffers
                                                , remote_endpoint
                                                , socket_type::message_flags()
@@ -292,7 +295,7 @@ void multiplexer::process_peek(boost::system::error_code error,
 
             crux_socket.process_receive( error
                                        , input->header_data
-                                       , datagram_size
+                                       , datagram_size - header_size
                                        , std::move(input->handler) );
         }
         else

@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(double_send_and_receive)
                       asio::buffer(rx_data),
                       [&](const error_code& error, size_t size) {
                           BOOST_ASSERT(!error);
-                          BOOST_ASSERT(size == rx_data.size());
+                          BOOST_REQUIRE_EQUAL(size, rx_data.size());
                           BOOST_REQUIRE_EQUAL
                             ( std::string(rx_data.begin(), rx_data.end())
                             , message2_text);
