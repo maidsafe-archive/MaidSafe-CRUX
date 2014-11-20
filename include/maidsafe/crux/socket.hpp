@@ -25,6 +25,9 @@
 #include <maidsafe/crux/endpoint.hpp>
 #include <maidsafe/crux/resolver.hpp>
 
+#include <maidsafe/crux/detail/receive_input_type.hpp>
+#include <maidsafe/crux/detail/receive_output_type.hpp>
+
 namespace maidsafe
 {
 namespace crux
@@ -40,6 +43,8 @@ class socket
     using service_type      = detail::service;
     using resolver_type     = crux::resolver;
     using read_handler_type = detail::receive_input_type::read_handler_type;
+
+    static const size_t header_size = std::tuple_size<detail::header_data_type>::value;
 
 public:
     // Construct a socket
@@ -101,14 +106,12 @@ private:
 
     void set_multiplexer(std::shared_ptr<detail::multiplexer> multiplexer);
 
-    std::unique_ptr<detail::receive_input_type> dequeue() override {
+    std::vector<boost::asio::mutable_buffer>* get_recv_buffers() override {
         if (receive_input_queue.empty()) {
             return nullptr;
         }
 
-        auto ret = std::move(receive_input_queue.front());
-        receive_input_queue.pop();
-        return ret;
+        return &receive_input_queue.front()->buffers;
     }
 
     void enqueue(const boost::system::error_code& error,
@@ -118,6 +121,8 @@ private:
         // FIXME: Thread-safe
         if (receive_input_queue.empty())
         {
+            assert(datagram);
+
             using detail::receive_output_type;
 
             std::unique_ptr<receive_output_type>
@@ -129,24 +134,22 @@ private:
         }
         else
         {
+            assert(!datagram);
+
             auto input = std::move(receive_input_queue.front());
             receive_input_queue.pop();
 
-            copy_buffers_and_process_receive(error,
-                                             bytes_transferred,
-                                             datagram,
-                                             input->buffers,
-                                             std::move(input->handler));
+            process_receive( error
+                           , input->header_data
+                           , bytes_transferred - header_size
+                           , std::move(input->handler));
         }
     }
 
     void process_receive( const boost::system::error_code& error
                         , const detail::header_data_type&  header_data
                         , std::size_t                      bytes_received
-                        , read_handler_type&&              handler) override
-    {
-        handler(error, bytes_received);
-    }
+                        , read_handler_type&&              handler);
 
 private:
     template <typename Handler,
@@ -435,7 +438,6 @@ void socket::copy_buffers_and_process_receive
 {
     using detail::header_data_type;
     namespace asio = boost::asio;
-    constexpr size_t header_size = std::tuple_size<header_data_type>::value;
 
     auto length = std::min( asio::buffer_size(user_buffers) + header_size
                           , bytes_transferred);
@@ -456,7 +458,7 @@ void socket::copy_buffers_and_process_receive
         asio::buffer_copy(asio::buffer(header_data, header_data.size()),
                           asio::buffer(*datagram),
                           header_size);
-        
+
         asio::buffer_copy(user_buffers,
                           asio::buffer(*datagram) + header_size,
                           payload_size);
@@ -505,9 +507,6 @@ socket::async_send(const ConstBufferSequence& buffers,
              [handler] (const boost::system::error_code& error,
                         std::size_t bytes_transferred) mutable
              {
-                 constexpr size_t header_size
-                   = std::tuple_size<detail::header_data_type>::value;
-
                  assert(bytes_transferred >= header_size);
 
                  // Process send
@@ -515,6 +514,15 @@ socket::async_send(const ConstBufferSequence& buffers,
              });
     }
     return result.get();
+}
+
+inline
+void socket::process_receive( const boost::system::error_code& error
+                            , const detail::header_data_type&  header_data
+                            , std::size_t                      bytes_received
+                            , read_handler_type&&              handler)
+{
+    handler(error, bytes_received);
 }
 
 template <typename Handler,

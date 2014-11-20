@@ -240,6 +240,7 @@ void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
     using socket_type = decltype(socket);
+    namespace asio = boost::asio;
 
     // FIXME: Handle error == operation_aborted
     // FIXME: Parse datagram (and only enqueue payload packets)
@@ -257,7 +258,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         auto datagram = std::make_shared<buffer_type>(datagram_size);
 
         datagram_size = socket.receive_from
-            ( boost::asio::buffer(datagram->data(), datagram->size())
+            ( asio::buffer(datagram->data(), datagram->size())
             , remote_endpoint
             , socket_type::message_flags()
             , error);
@@ -280,37 +281,30 @@ void multiplexer::process_peek(boost::system::error_code error,
     }
     else
     {
-        auto& crux_socket = *(*recipient).second;
-        auto  input       = crux_socket.dequeue();
+        auto& crux_socket  = *(*recipient).second;
+        auto* recv_buffers = crux_socket.get_recv_buffers();
 
-        if (input)
-        {
-            constexpr size_t header_size
-                = std::tuple_size<detail::header_data_type>::value;
+        std::shared_ptr<buffer_type> datagram;
 
-            datagram_size = socket.receive_from( input->buffers
+        if (recv_buffers) {
+            datagram_size = socket.receive_from( *recv_buffers
                                                , remote_endpoint
                                                , socket_type::message_flags()
-                                               , error);
-
-            crux_socket.process_receive( error
-                                       , input->header_data
-                                       , datagram_size - header_size
-                                       , std::move(input->handler) );
+                                               , error );
         }
-        else
-        {
-            auto datagram = std::make_shared<buffer_type>(datagram_size);
+        else {
+            datagram = std::make_shared<buffer_type>(datagram_size);
 
-            datagram_size = socket.receive_from
-                (boost::asio::buffer(datagram->data(), datagram->size()),
-                 remote_endpoint,
-                 socket_type::message_flags(),
-                 error);
-
-            // Enqueue datagram on socket
-            crux_socket.enqueue(error, datagram_size, datagram);
+            datagram_size = socket.receive_from( asio::buffer( datagram->data()
+                                                             , datagram->size() )
+                                               , remote_endpoint
+                                               , socket_type::message_flags()
+                                               , error );
         }
+
+
+        crux_socket.enqueue(error, datagram_size, datagram);
+
     }
 
     if (--receive_calls  > 0)

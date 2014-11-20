@@ -26,7 +26,7 @@ struct receive_input_type
     read_handler_type                        handler;
 
     template<class MutableBufferSequence>
-    receive_input_type( const MutableBufferSequence& payload
+    receive_input_type( const MutableBufferSequence& payload_buffers
                       , read_handler_type&&          handler);
 };
 
@@ -35,7 +35,7 @@ struct receive_input_type
 namespace maidsafe { namespace crux { namespace detail {
 
 template<class MutableBufferSequence>
-receive_input_type::receive_input_type( const MutableBufferSequence& buffers
+receive_input_type::receive_input_type( const MutableBufferSequence& payload_buffers
                                       , read_handler_type&& handler)
     : handler(std::move(handler))
 {
@@ -44,7 +44,7 @@ receive_input_type::receive_input_type( const MutableBufferSequence& buffers
     this->buffers.emplace_back(mutable_buffer(&header_data.front()
                                              , header_data.size()));
 
-    for (const auto& buffer : buffers) {
+    for (const auto& buffer : payload_buffers) {
         this->buffers.emplace_back(buffer);
     }
 }

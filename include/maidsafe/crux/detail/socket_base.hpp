@@ -19,8 +19,6 @@
 
 #include <maidsafe/crux/detail/buffer.hpp>
 #include <maidsafe/crux/detail/header.hpp>
-#include <maidsafe/crux/detail/receive_input_type.hpp>
-#include <maidsafe/crux/detail/receive_output_type.hpp>
 
 namespace maidsafe
 {
@@ -43,16 +41,11 @@ protected:
 
     void remote_endpoint(const endpoint_type& r) { remote = r; }
 
+    virtual std::vector<boost::asio::mutable_buffer>* get_recv_buffers() = 0;
+
     virtual void enqueue(const boost::system::error_code&,
                          std::size_t bytes_transferred,
                          std::shared_ptr<detail::buffer>) = 0;
-
-    virtual std::unique_ptr<receive_input_type> dequeue() = 0;
-
-    virtual void process_receive( const boost::system::error_code&
-                                , const header_data_type&
-                                , std::size_t
-                                , detail::receive_input_type::read_handler_type&&) = 0;
 
 protected:
     endpoint_type remote;
