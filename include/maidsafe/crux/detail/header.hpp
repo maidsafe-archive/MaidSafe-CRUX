@@ -23,6 +23,7 @@ namespace detail
 typedef std::array<char, 32> header_data_type;
 
 class header {
+public:
 };
 
 } // namespace detail

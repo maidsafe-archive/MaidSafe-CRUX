@@ -101,7 +101,7 @@ private:
     using accept_input_type = std::tuple<socket_base *, accept_handler_type>;
     std::queue<std::unique_ptr<accept_input_type>> acceptor_queue;
 
-    endpoint_type remote_endpoint;
+    endpoint_type next_remote_endpoint;
 };
 
 } // namespace detail
@@ -224,14 +224,14 @@ inline void multiplexer::do_start_receive()
     // get the remote_endpoint information.
     socket.async_receive_from
         (boost::asio::buffer(static_cast<char*>(nullptr), sizeof(0)),
-         remote_endpoint,
+         next_remote_endpoint,
          decltype(socket)::message_peek,
          [self]
          (boost::system::error_code error, std::size_t size) mutable
          {
             // The size parameter is useless here because what we get
             // is min(buffer_size, datagram_size) and our buffer size is 0.
-            self->process_peek(error, self->remote_endpoint);
+            self->process_peek(error, self->next_remote_endpoint);
          });
 }
 
@@ -254,12 +254,13 @@ void multiplexer::process_peek(boost::system::error_code error,
     // FIXME: Make socket.receive_from commands async.
     if (recipient == sockets.end())
     {
-        auto datagram = std::make_shared<buffer_type>(datagram_size); // FIXME: size
+        auto datagram = std::make_shared<buffer_type>(datagram_size);
 
-        // FIXME: Make async.
         datagram_size = socket.receive_from
-            (boost::asio::buffer(datagram->data(), datagram->capacity()),
-             remote_endpoint, socket_type::message_flags(), error);
+            ( boost::asio::buffer(datagram->data(), datagram->size())
+            , remote_endpoint
+            , socket_type::message_flags()
+            , error);
 
         // Unknown endpoint
         if (!acceptor_queue.empty())
@@ -286,7 +287,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         {
             datagram_size = socket.receive_from( input->buffers
                                                , remote_endpoint
-                                               , 0
+                                               , socket_type::message_flags()
                                                , error);
 
             crux_socket.process_receive( error
@@ -299,7 +300,7 @@ void multiplexer::process_peek(boost::system::error_code error,
             auto datagram = std::make_shared<buffer_type>(datagram_size);
 
             datagram_size = socket.receive_from
-                (boost::asio::buffer(datagram->data(), datagram->capacity()),
+                (boost::asio::buffer(datagram->data(), datagram->size()),
                  remote_endpoint,
                  socket_type::message_flags(),
                  error);
