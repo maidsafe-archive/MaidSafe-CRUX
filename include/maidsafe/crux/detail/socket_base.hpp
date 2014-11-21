@@ -18,6 +18,7 @@
 #include <boost/asio/ip/udp.hpp>
 
 #include <maidsafe/crux/detail/buffer.hpp>
+#include <maidsafe/crux/detail/header.hpp>
 
 namespace maidsafe
 {
@@ -37,7 +38,11 @@ public:
 
 protected:
     friend class multiplexer;
+
     void remote_endpoint(const endpoint_type& r) { remote = r; }
+
+    virtual std::vector<boost::asio::mutable_buffer>* get_recv_buffers() = 0;
+
     virtual void enqueue(const boost::system::error_code&,
                          std::size_t bytes_transferred,
                          std::shared_ptr<detail::buffer>) = 0;
@@ -46,8 +51,6 @@ protected:
     endpoint_type remote;
 };
 
-} // namespace detail
-} // namespace crux
-} // namespace maidsafe
+}}} // namespace maidsafe::crux::detail
 
 #endif // MAIDSAFE_CRUX_DETAIL_SOCKET_BASE_HPP
