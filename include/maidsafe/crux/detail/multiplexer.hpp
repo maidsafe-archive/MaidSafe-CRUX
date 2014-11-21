@@ -72,8 +72,7 @@ public:
     const next_layer_type& next_layer() const;
 
 private:
-    multiplexer(boost::asio::io_service& io,
-                endpoint_type local_endpoint);
+    multiplexer(next_layer_type&& socket);
 
     void do_start_receive();
 
@@ -127,10 +126,9 @@ std::shared_ptr<multiplexer> multiplexer::create(Types&&... args)
     return self;
 }
 
-inline multiplexer::multiplexer(boost::asio::io_service& io,
-                                endpoint_type local_endpoint)
-    : socket(io, local_endpoint),
-      receive_calls(0)
+inline multiplexer::multiplexer(next_layer_type&& socket)
+    : socket(std::move(socket))
+    , receive_calls(0)
 {
 }
 

@@ -151,12 +151,10 @@ BOOST_AUTO_TEST_CASE(single_exchange)
 
     asio::io_service ios;
 
-    // FIXME: Use 0 as port # to let system choose a random one.
-    crux::socket client_socket(ios, endpoint_type(udp::v4(), 55555));
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
     crux::socket server_socket(ios);
 
-    // FIXME: Use 0 as port # to let system choose a random one.
-    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 55556));
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
 
     const std::string  blank_message = "XXXXXXXXXXXXX";
     std::string        message1_text = "TEST_MESSAGE1";
