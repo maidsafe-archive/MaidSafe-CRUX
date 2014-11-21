@@ -35,7 +35,7 @@ public:
     explicit service(boost::asio::io_service& io);
 
     // Get or create the multiplexer that owns a local endpoint
-    std::shared_ptr<detail::multiplexer> add(const endpoint_type& local_endpoint);
+    std::shared_ptr<detail::multiplexer> add(endpoint_type local_endpoint);
     void remove(const endpoint_type& local_endpoint);
 
     // Required by boost::asio::basic_io_object
@@ -71,18 +71,28 @@ inline service::service(boost::asio::io_service& io)
 {
 }
 
-inline std::shared_ptr<detail::multiplexer> service::add(const endpoint_type& local_endpoint)
+inline std::shared_ptr<detail::multiplexer> service::add(endpoint_type local_endpoint)
 {
+    using next_layer_type = detail::multiplexer::next_layer_type;
+
     // FIXME: Thread-safety
     std::shared_ptr<detail::multiplexer> result;
     auto where = multiplexers.lower_bound(local_endpoint);
     if ((where == multiplexers.end()) || (multiplexers.key_comp()(local_endpoint, where->first)))
     {
         // Multiplexer for local endpoint does not exists
-        result = detail::multiplexer::create(std::ref(get_io_service()),
-                                             local_endpoint);
+
+        next_layer_type socket(get_io_service(), local_endpoint);
+
+        // local_endpoint changes if ephemeral port is used.
+        local_endpoint = socket.local_endpoint();
+
+        result = detail::multiplexer::create(std::move(socket));
+
         where = multiplexers.insert(where,
-                                    multiplexer_map::value_type(local_endpoint, result));
+                                    multiplexer_map::value_type
+                                        ( local_endpoint
+                                        , result));
     }
     else
     {
@@ -91,8 +101,12 @@ inline std::shared_ptr<detail::multiplexer> service::add(const endpoint_type& lo
         {
             // This can happen if an acceptor has failed
             // Reassign if empty
-            result = detail::multiplexer::create(std::ref(get_io_service()),
-                                                 local_endpoint);
+            next_layer_type socket(get_io_service(), local_endpoint);
+
+            assert(local_endpoint == socket.local_endpoint());
+
+            result = detail::multiplexer::create(std::move(socket));
+
             where->second = result;
         }
     }
