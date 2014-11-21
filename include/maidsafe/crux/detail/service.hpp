@@ -105,8 +105,7 @@ inline std::shared_ptr<detail::multiplexer> service::add(endpoint_type local_end
 
             assert(local_endpoint == socket.local_endpoint());
 
-            result = detail::multiplexer::create
-                        (next_layer_type(get_io_service(), local_endpoint));
+            result = detail::multiplexer::create(std::move(socket));
 
             where->second = result;
         }
