@@ -77,10 +77,7 @@ private:
 
     void do_start_receive();
 
-    void process_receive(const boost::system::error_code&,
-                         std::size_t bytes_transferred,
-                         std::shared_ptr<buffer_type>,
-                         const endpoint_type&);
+    void process_peek(boost::system::error_code, endpoint_type);
 
     template <typename AcceptHandler>
     void process_accept(const boost::system::error_code& error,
@@ -103,6 +100,8 @@ private:
     using accept_handler_type = std::function<void (const boost::system::error_code&)>;
     using accept_input_type = std::tuple<socket_base *, accept_handler_type>;
     std::queue<std::unique_ptr<accept_input_type>> acceptor_queue;
+
+    endpoint_type next_remote_endpoint;
 };
 
 } // namespace detail
@@ -219,46 +218,58 @@ inline void multiplexer::start_receive()
 
 inline void multiplexer::do_start_receive()
 {
-    auto remote_endpoint = std::make_shared<endpoint_type>();
-    // FIXME: Improve buffer management
-    auto datagram = std::make_shared<buffer_type>(1400); // FIXME: size
     auto self(shared_from_this());
-    // FIXME: gather-read (header, body)
+
+    // We need to read with at least one zero sized buffer to
+    // get the remote_endpoint information.
     socket.async_receive_from
-        (boost::asio::buffer(datagram->data(), datagram->capacity()),
-         *remote_endpoint,
-         [self, datagram, remote_endpoint]
-         (const boost::system::error_code& error, std::size_t size) mutable
+        (boost::asio::buffer(static_cast<char*>(nullptr), 0),
+         next_remote_endpoint,
+         decltype(socket)::message_peek,
+         [self]
+         (boost::system::error_code error, std::size_t size) mutable
          {
-             self->process_receive(error, size, datagram, *remote_endpoint);
+            // The size parameter is useless here because what we get
+            // is min(buffer_size, datagram_size) and our buffer size is 0.
+            self->process_peek(error, self->next_remote_endpoint);
          });
 }
 
 inline
-void multiplexer::process_receive(const boost::system::error_code& error,
-                                  std::size_t bytes_transferred,
-                                  std::shared_ptr<buffer_type> datagram,
-                                  const endpoint_type& remote_endpoint)
+void multiplexer::process_peek(boost::system::error_code error,
+                               endpoint_type remote_endpoint)
 {
+    using socket_type = decltype(socket);
+    namespace asio = boost::asio;
+
     // FIXME: Handle error == operation_aborted
-
-    if (--receive_calls  > 0)
-    {
-        do_start_receive();
-    }
-
     // FIXME: Parse datagram (and only enqueue payload packets)
 
     auto recipient = sockets.find(remote_endpoint);
+
+    socket_type::bytes_readable command(true);
+    socket.io_control(command);
+    std::size_t datagram_size = command.get();
+
+    // FIXME: gather-read (header, body)
+    // FIXME: Make socket.receive_from commands async.
     if (recipient == sockets.end())
     {
+        auto datagram = std::make_shared<buffer_type>(datagram_size);
+
+        datagram_size = socket.receive_from
+            ( asio::buffer(datagram->data(), datagram->size())
+            , remote_endpoint
+            , socket_type::message_flags()
+            , error);
+
         // Unknown endpoint
         if (!acceptor_queue.empty())
         {
             auto input = std::move(acceptor_queue.front());
             acceptor_queue.pop();
             process_accept(error,
-                           bytes_transferred,
+                           datagram_size,
                            std::get<0>(*input),
                            datagram,
                            remote_endpoint,
@@ -270,8 +281,35 @@ void multiplexer::process_receive(const boost::system::error_code& error,
     }
     else
     {
-        // Enqueue datagram on socket
-        (*recipient).second->enqueue(error, bytes_transferred, datagram);
+        auto& crux_socket  = *(*recipient).second;
+        auto* recv_buffers = crux_socket.get_recv_buffers();
+
+        std::shared_ptr<buffer_type> datagram;
+
+        if (recv_buffers) {
+            datagram_size = socket.receive_from( *recv_buffers
+                                               , remote_endpoint
+                                               , socket_type::message_flags()
+                                               , error );
+        }
+        else {
+            datagram = std::make_shared<buffer_type>(datagram_size);
+
+            datagram_size = socket.receive_from( asio::buffer( datagram->data()
+                                                             , datagram->size() )
+                                               , remote_endpoint
+                                               , socket_type::message_flags()
+                                               , error );
+        }
+
+
+        crux_socket.enqueue(error, datagram_size, datagram);
+
+    }
+
+    if (--receive_calls  > 0)
+    {
+        do_start_receive();
     }
 }
 
