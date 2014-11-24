@@ -254,7 +254,6 @@ inline
 void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
-    using socket_type = decltype(socket);
     namespace asio = boost::asio;
 
     // FIXME: Handle error == operation_aborted
@@ -262,7 +261,7 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     auto recipient = sockets.find(remote_endpoint);
 
-    socket_type::bytes_readable command(true);
+    next_layer_type::bytes_readable command(true);
     socket.io_control(command);
     std::size_t datagram_size = command.get();
 
@@ -281,7 +280,7 @@ void multiplexer::process_peek(boost::system::error_code error,
             ( concatenate( asio::buffer(header_data)
                          , asio::buffer(payload->data(), payload->size()))
             , remote_endpoint
-            , socket_type::message_flags()
+            , next_layer_type::message_flags()
             , error);
 
         // Unknown endpoint
@@ -311,7 +310,7 @@ void multiplexer::process_peek(boost::system::error_code error,
             socket.receive_from( concatenate( asio::buffer(header_data)
                                             , std::move(*recv_buffers))
                                , remote_endpoint
-                               , socket_type::message_flags()
+                               , next_layer_type::message_flags()
                                , error );
         }
         else {
@@ -321,7 +320,7 @@ void multiplexer::process_peek(boost::system::error_code error,
                                             , asio::buffer( payload->data()
                                                           , payload->size()))
                                , remote_endpoint
-                               , socket_type::message_flags()
+                               , next_layer_type::message_flags()
                                , error );
         }
 

@@ -44,12 +44,13 @@ BOOST_AUTO_TEST_CASE(concatenate)
 
     BOOST_REQUIRE_EQUAL(2, size);
 
-    BOOST_REQUIRE_EQUAL(30, asio::buffer_size(concatenated));
+    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
+                       , asio::buffer_size(concatenated));
 
     std::string test_data = "012345678910111213141516171819";
 
-    asio::buffer_copy(concatenated, asio::buffer(&test_data[0]
-                                                , test_data.size()));
+    asio::buffer_copy( concatenated
+                     , asio::buffer(&test_data[0], test_data.size()));
 
     BOOST_REQUIRE_EQUAL(to_string(a10), "0123456789");
     BOOST_REQUIRE_EQUAL(to_string(a20), "10111213141516171819");
