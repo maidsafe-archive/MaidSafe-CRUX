@@ -455,7 +455,7 @@ void socket::copy_buffers_and_process_receive
 
         payload_size = length - header_size;
 
-        asio::buffer_copy(asio::buffer(header_data, header_data.size()),
+        asio::buffer_copy(asio::buffer(header_data.data(), header_data.size()),
                           asio::buffer(*datagram),
                           header_size);
 
