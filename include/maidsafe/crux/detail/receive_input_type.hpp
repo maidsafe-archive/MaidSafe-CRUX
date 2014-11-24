@@ -21,9 +21,8 @@ struct receive_input_type
     using read_handler_type
         = std::function<void (const boost::system::error_code&, std::size_t)>;
 
-    header_data_type                         header_data;
-    std::vector<boost::asio::mutable_buffer> buffers;
     read_handler_type                        handler;
+    std::vector<boost::asio::mutable_buffer> buffers;
 
     template<class MutableBufferSequence>
     receive_input_type( const MutableBufferSequence& payload_buffers
@@ -38,14 +37,11 @@ template<class MutableBufferSequence>
 receive_input_type::receive_input_type( const MutableBufferSequence& payload_buffers
                                       , read_handler_type&& handler)
     : handler(std::move(handler))
+    , buffers(boost::asio::buffer_size(payload_buffers))
 {
-    using boost::asio::mutable_buffer;
-
-    this->buffers.emplace_back(mutable_buffer(&header_data.front()
-                                             , header_data.size()));
-
+    std::size_t i = 0;
     for (const auto& buffer : payload_buffers) {
-        this->buffers.emplace_back(buffer);
+        this->buffers[i++] = buffer;
     }
 }
 

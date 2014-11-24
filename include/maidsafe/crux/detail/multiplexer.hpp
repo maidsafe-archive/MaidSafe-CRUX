@@ -24,6 +24,7 @@
 #include <boost/asio/ip/udp.hpp>
 
 #include <maidsafe/crux/detail/buffer.hpp>
+#include <maidsafe/crux/detail/header.hpp>
 
 namespace maidsafe
 {
@@ -38,6 +39,8 @@ class socket_base;
 
 class multiplexer : public std::enable_shared_from_this<multiplexer>
 {
+    static const size_t header_size = std::tuple_size<header_data_type>::value;
+
 public:
     using protocol_type = boost::asio::ip::udp;
     using next_layer_type = protocol_type::socket;
@@ -63,9 +66,9 @@ public:
         typename boost::asio::handler_type<CompletionToken,
                                            void(boost::system::error_code, std::size_t)>::type
         >::type
-    async_send_to(const ConstBufferSequence& buffers,
-                       const endpoint_type& endpoint,
-                       CompletionToken&& token);
+    async_send_to(ConstBufferSequence&& buffers,
+                  const endpoint_type& endpoint,
+                  CompletionToken&& token);
 
     void start_receive();
 
@@ -111,6 +114,7 @@ private:
 #include <utility>
 #include <boost/asio/buffer.hpp>
 #include <maidsafe/crux/detail/socket_base.hpp>
+#include <maidsafe/crux/detail/concatenate.hpp>
 
 namespace maidsafe
 {
@@ -179,6 +183,8 @@ void multiplexer::process_accept(const boost::system::error_code& error,
 {
     if (!error)
     {
+        header_data_type header_data;
+
         socket->remote_endpoint(current_remote_endpoint);
         // Queue datagram for later use
         socket->enqueue(error, bytes_transferred, datagram);
@@ -192,17 +198,28 @@ typename boost::asio::async_result<
     typename boost::asio::handler_type<CompletionToken,
                                        void(boost::system::error_code, std::size_t)>::type
     >::type
-multiplexer::async_send_to(const ConstBufferSequence& buffers,
+multiplexer::async_send_to(ConstBufferSequence&& buffers,
                            const endpoint_type& endpoint,
                            CompletionToken&& token)
 {
+    namespace asio = boost::asio;
+    using boost::system::error_code;
+
+    static header_data_type dummy_header;
+
     // FIXME: Congestion control
-    typename boost::asio::handler_type<CompletionToken,
-                              void(boost::system::error_code, std::size_t)>::type handler(std::forward<CompletionToken>(token));
+    typename asio::handler_type<CompletionToken,
+                       void(boost::system::error_code, std::size_t)>::type handler(std::forward<CompletionToken>(token));
+
     boost::asio::async_result<decltype(handler)> result(handler);
-    socket.async_send_to(buffers,
+    socket.async_send_to(concatenate( asio::buffer(dummy_header)
+                                    , std::forward<ConstBufferSequence>(buffers)),
                          endpoint,
-                         std::forward<decltype(handler)>(handler));
+                         [handler](const error_code& error, std::size_t size) mutable {
+                           handler( error
+                                  , (size >= header_size) ? size - header_size
+                                                          : 0);
+                         });
     return result.get();
 }
 
@@ -249,14 +266,20 @@ void multiplexer::process_peek(boost::system::error_code error,
     socket.io_control(command);
     std::size_t datagram_size = command.get();
 
+    header_data_type header_data;
+    // FIXME: Do something sane here, don't let the peer crash us.
+    assert(datagram_size >= header_size);
+    std::size_t payload_size = datagram_size - header_size;
+
     // FIXME: gather-read (header, body)
     // FIXME: Make socket.receive_from commands async.
     if (recipient == sockets.end())
     {
-        auto datagram = std::make_shared<buffer_type>(datagram_size);
+        auto payload = std::make_shared<buffer_type>(payload_size);
 
-        datagram_size = socket.receive_from
-            ( asio::buffer(datagram->data(), datagram->size())
+        socket.receive_from
+            ( concatenate( asio::buffer(header_data)
+                         , asio::buffer(payload->data(), payload->size()))
             , remote_endpoint
             , socket_type::message_flags()
             , error);
@@ -269,7 +292,7 @@ void multiplexer::process_peek(boost::system::error_code error,
             process_accept(error,
                            datagram_size,
                            std::get<0>(*input),
-                           datagram,
+                           payload,
                            remote_endpoint,
                            std::get<1>(*input));
         }
@@ -282,27 +305,27 @@ void multiplexer::process_peek(boost::system::error_code error,
         auto& crux_socket  = *(*recipient).second;
         auto* recv_buffers = crux_socket.get_recv_buffers();
 
-        std::shared_ptr<buffer_type> datagram;
+        std::shared_ptr<buffer_type> payload;
 
         if (recv_buffers) {
-            datagram_size = socket.receive_from( *recv_buffers
-                                               , remote_endpoint
-                                               , socket_type::message_flags()
-                                               , error );
+            socket.receive_from( concatenate( asio::buffer(header_data)
+                                            , std::move(*recv_buffers))
+                               , remote_endpoint
+                               , socket_type::message_flags()
+                               , error );
         }
         else {
-            datagram = std::make_shared<buffer_type>(datagram_size);
+            payload = std::make_shared<buffer_type>(payload_size);
 
-            datagram_size = socket.receive_from( asio::buffer( datagram->data()
-                                                             , datagram->size() )
-                                               , remote_endpoint
-                                               , socket_type::message_flags()
-                                               , error );
+            socket.receive_from( concatenate( asio::buffer(header_data)
+                                            , asio::buffer( payload->data()
+                                                          , payload->size()))
+                               , remote_endpoint
+                               , socket_type::message_flags()
+                               , error );
         }
 
-
-        crux_socket.enqueue(error, datagram_size, datagram);
-
+        crux_socket.enqueue(error, payload_size, payload);
     }
 
     if (--receive_calls  > 0)
