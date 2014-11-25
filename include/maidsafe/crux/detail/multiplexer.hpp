@@ -83,7 +83,6 @@ private:
 
     template <typename AcceptHandler>
     void process_accept(const boost::system::error_code& error,
-                        std::size_t bytes_transferred,
                         socket_base *,
                         std::shared_ptr<buffer_type> datagram,
                         const endpoint_type& remote_endpoint,
@@ -175,19 +174,16 @@ void multiplexer::async_accept(SocketType& socket,
 
 template <typename AcceptHandler>
 void multiplexer::process_accept(const boost::system::error_code& error,
-                                 std::size_t bytes_transferred,
                                  socket_base *socket,
-                                 std::shared_ptr<buffer_type> datagram,
+                                 std::shared_ptr<buffer_type> payload,
                                  const endpoint_type& current_remote_endpoint,
                                  AcceptHandler&& handler)
 {
     if (!error)
     {
-        header_data_type header_data;
-
         socket->remote_endpoint(current_remote_endpoint);
-        // Queue datagram for later use
-        socket->enqueue(error, bytes_transferred, datagram);
+        // Queue payload for later use
+        socket->enqueue(error, payload->size(), payload);
     }
     handler(error);
 }
@@ -265,9 +261,12 @@ void multiplexer::process_peek(boost::system::error_code error,
     socket.io_control(command);
     std::size_t datagram_size = command.get();
 
+    if (datagram_size < header_size) {
+        // Corrupted packet or someone is being silly.
+        return;
+    }
+
     header_data_type header_data;
-    // FIXME: Do something sane here, don't let the peer crash us.
-    assert(datagram_size >= header_size);
     std::size_t payload_size = datagram_size - header_size;
 
     // FIXME: gather-read (header, body)
@@ -277,8 +276,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         auto payload = std::make_shared<buffer_type>(payload_size);
 
         socket.receive_from
-            ( concatenate( asio::buffer(header_data)
-                         , asio::buffer(payload->data(), payload->size()))
+            ( concatenate(asio::buffer(header_data), asio::buffer(*payload))
             , remote_endpoint
             , next_layer_type::message_flags()
             , error);
@@ -289,7 +287,6 @@ void multiplexer::process_peek(boost::system::error_code error,
             auto input = std::move(acceptor_queue.front());
             acceptor_queue.pop();
             process_accept(error,
-                           datagram_size,
                            std::get<0>(*input),
                            payload,
                            remote_endpoint,
@@ -317,8 +314,7 @@ void multiplexer::process_peek(boost::system::error_code error,
             payload = std::make_shared<buffer_type>(payload_size);
 
             socket.receive_from( concatenate( asio::buffer(header_data)
-                                            , asio::buffer( payload->data()
-                                                          , payload->size()))
+                                            , asio::buffer(*payload))
                                , remote_endpoint
                                , next_layer_type::message_flags()
                                , error );

@@ -19,7 +19,7 @@ class concatenated {
     using right_iterator = typename RightBuffers::const_iterator;
 
 public:
-    using value_type = boost::asio::mutable_buffer;
+    using value_type = typename LeftBuffers::value_type;
 
     class const_iterator {
     public:
@@ -37,15 +37,15 @@ public:
 
         const_iterator( left_iterator  left_begin,  left_iterator  left_end
                       , right_iterator right_begin, right_iterator right_end)
-            : left_i(left_begin), left_end(left_end)
-            , right_i(right_begin), right_end(right_end)
+            : left_current(left_begin), left_end(left_end)
+            , right_current(right_begin), right_end(right_end)
         {}
 
     private:
-        left_iterator  left_i;
+        left_iterator  left_current;
         left_iterator  left_end;
 
-        right_iterator right_i;
+        right_iterator right_current;
         right_iterator right_end;
     };
 
@@ -66,11 +66,11 @@ private:
 template<typename Left, typename Right>
 typename concatenated<Left, Right>::const_iterator&
 concatenated<Left, Right>::const_iterator::operator++() {
-    if (left_i != left_end) {
-        ++left_i;
+    if (left_current != left_end) {
+        ++left_current;
     }
     else {
-        ++right_i;
+        ++right_current;
     }
     return *this;
 }
@@ -78,19 +78,19 @@ concatenated<Left, Right>::const_iterator::operator++() {
 template<typename Left, typename Right>
 typename concatenated<Left, Right>::const_iterator
 concatenated<Left, Right>::const_iterator::operator++(int) {
-    if (left_i != left_end) {
-        return const_iterator(left_i++, left_end, right_i, right_end);
+    if (left_current != left_end) {
+        return const_iterator(left_current++, left_end, right_current, right_end);
     }
     else {
-        return const_iterator(left_i, left_end, right_i++, right_end);
+        return const_iterator(left_current, left_end, right_current++, right_end);
     }
 }
 
 template<typename Left, typename Right>
 const typename concatenated<Left, Right>::value_type&
 concatenated<Left, Right>::const_iterator::operator*() {
-    return (left_i!= left_end) ? *left_i
-                               : *right_i;
+    return (left_current!= left_end) ? *left_current
+                                     : *right_current;
 }
 
 template<typename Left, typename Right>
@@ -101,7 +101,8 @@ concatenated<Left, Right>::const_iterator::operator->() {
 
 template<typename Left, typename Right>
 bool concatenated<Left, Right>::const_iterator::operator==(const_iterator other) const {
-    return left_i == other.left_i && right_i == other.right_i;
+    return left_current == other.left_current
+        && right_current == other.right_current;
 }
 
 template<typename Left, typename Right>

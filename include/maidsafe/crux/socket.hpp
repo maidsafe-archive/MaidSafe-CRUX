@@ -117,14 +117,12 @@ private:
         // FIXME: Thread-safe
         if (receive_input_queue.empty())
         {
-            assert(payload);
+            assert(payload && payload->size() == payload_size);
 
             using detail::receive_output_type;
 
             std::unique_ptr<receive_output_type>
-                operation(new receive_output_type({ error
-                                                  , payload_size
-                                                  , payload }));
+                operation(new receive_output_type({ error, payload }));
 
             receive_output_queue.emplace(std::move(operation));
         }
@@ -175,7 +173,6 @@ private:
 
     template <typename MutableBufferSequence>
     void copy_buffers_and_process_receive(const boost::system::error_code& error,
-                                          std::size_t bytes_transferred,
                                           std::shared_ptr<detail::buffer> datagram,
                                           const MutableBufferSequence&,
                                           read_handler_type&&);
@@ -412,7 +409,6 @@ socket::async_receive(const MutableBufferSequence& buffers,
                      auto output = std::move(this->receive_output_queue.front());
                      this->receive_output_queue.pop();
                      this->copy_buffers_and_process_receive(output->error,
-                                                            output->size,
                                                             output->data,
                                                             buffers,
                                                             handler);
@@ -425,21 +421,18 @@ socket::async_receive(const MutableBufferSequence& buffers,
 template <typename MutableBufferSequence>
 void socket::copy_buffers_and_process_receive
         ( const boost::system::error_code& error
-        , std::size_t                      bytes_transferred
         , std::shared_ptr<detail::buffer>  payload
         , const MutableBufferSequence&     user_buffers
         , read_handler_type&&              handler)
 {
     namespace asio = boost::asio;
 
-    auto length = std::min(asio::buffer_size(user_buffers), bytes_transferred);
-
     if (!error)
     {
-        asio::buffer_copy(user_buffers, asio::buffer(*payload), length);
+        asio::buffer_copy(user_buffers, asio::buffer(*payload));
     }
 
-    process_receive(error, length, std::move(handler));
+    process_receive(error, payload->size(), std::move(handler));
 }
 
 template <typename ConstBufferSequence,

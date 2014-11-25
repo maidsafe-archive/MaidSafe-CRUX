@@ -54,6 +54,15 @@ BOOST_AUTO_TEST_CASE(concatenate)
 
     BOOST_REQUIRE_EQUAL(to_string(a10), "0123456789");
     BOOST_REQUIRE_EQUAL(to_string(a20), "10111213141516171819");
+
+
+    // Check if moving works correctly:
+    std::vector<asio::mutable_buffer> v1(10);
+    std::vector<asio::mutable_buffer> v2(20);
+
+    auto concatenated2 = maidsafe::crux::detail::concatenate(std::move(v1), v2);
+    BOOST_REQUIRE_EQUAL(0, v1.size());
+    BOOST_REQUIRE_EQUAL(20, v2.size());
 }
 
 // FIXME: Add test for connect/accept only (no data exchange).
@@ -67,8 +76,8 @@ BOOST_AUTO_TEST_CASE(sigle_send_and_receive)
 
     asio::io_service ios;
 
-    crux::socket   client_socket(ios, endpoint_type(udp::v4(), 0));
-    crux::socket   server_socket(ios);
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
 
     crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
 
