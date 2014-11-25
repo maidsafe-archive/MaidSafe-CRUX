@@ -19,6 +19,52 @@ namespace asio = boost::asio;
 using error_code    = boost::system::error_code;
 using endpoint_type = boost::asio::ip::udp::endpoint;
 
+static std::string to_string(const std::vector<char>& v) {
+    return std::string(v.begin(), v.end());
+}
+
+template<std::size_t N>
+std::string to_string(const std::array<char, N>& v) {
+    return std::string(v.begin(), v.end());
+}
+
+BOOST_AUTO_TEST_CASE(concatenate)
+{
+    std::array<char, 10> a10;
+    std::array<char, 20> a20;
+
+    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
+                                                           , asio::buffer(a20));
+
+    std::size_t size = 0;
+
+    for (auto& b : concatenated) {
+        ++size;
+    }
+
+    BOOST_REQUIRE_EQUAL(2, size);
+
+    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
+                       , asio::buffer_size(concatenated));
+
+    std::string test_data = "012345678910111213141516171819";
+
+    asio::buffer_copy( concatenated
+                     , asio::buffer(&test_data[0], test_data.size()));
+
+    BOOST_REQUIRE_EQUAL(to_string(a10), "0123456789");
+    BOOST_REQUIRE_EQUAL(to_string(a20), "10111213141516171819");
+
+
+    // Check if moving works correctly:
+    std::vector<asio::mutable_buffer> v1(10);
+    std::vector<asio::mutable_buffer> v2(20);
+
+    auto concatenated2 = maidsafe::crux::detail::concatenate(std::move(v1), v2);
+    BOOST_REQUIRE_EQUAL(0, v1.size());
+    BOOST_REQUIRE_EQUAL(20, v2.size());
+}
+
 // FIXME: Add test for connect/accept only (no data exchange).
 // This is currently not possible since we don't have the
 // handshake in place yet.
@@ -30,8 +76,8 @@ BOOST_AUTO_TEST_CASE(sigle_send_and_receive)
 
     asio::io_service ios;
 
-    crux::socket   client_socket(ios, endpoint_type(udp::v4(), 0));
-    crux::socket   server_socket(ios);
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
 
     crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
 
@@ -49,8 +95,8 @@ BOOST_AUTO_TEST_CASE(sigle_send_and_receive)
                 asio::buffer(rx_data),
                 [&](const error_code& error, size_t size) {
                   BOOST_ASSERT(!error);
-                  BOOST_REQUIRE_EQUAL(size, rx_data.size());
-                  BOOST_ASSERT(rx_data == tx_data);
+                  BOOST_REQUIRE_EQUAL(size, tx_data.size());
+                  BOOST_REQUIRE_EQUAL(to_string(rx_data), to_string(tx_data));
 
                   tested_receive = true;
                 });
