@@ -8,13 +8,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE core_tests
-
 #include <boost/test/unit_test.hpp>
 #include <boost/system/error_code.hpp>
 #include <maidsafe/crux/socket.hpp>
 #include <maidsafe/crux/acceptor.hpp>
-#include <maidsafe/crux/detail/sequence_number.hpp>
 
 namespace asio = boost::asio;
 using error_code    = boost::system::error_code;
@@ -22,155 +19,6 @@ using endpoint_type = boost::asio::ip::udp::endpoint;
 
 static std::string to_string(const std::vector<char>& v) {
     return std::string(v.begin(), v.end());
-}
-
-template<std::size_t N>
-std::string to_string(const std::array<char, N>& v) {
-    return std::string(v.begin(), v.end());
-}
-
-BOOST_AUTO_TEST_CASE(sequence_number)
-{
-    using T  = uint16_t;
-    using SN = maidsafe::crux::detail::sequence_number<T>;
-
-    constexpr auto max = std::numeric_limits<T>::max();
-
-    BOOST_REQUIRE(SN(0)       < SN(1));
-    BOOST_REQUIRE(SN(0)       < SN(max/2));
-    BOOST_REQUIRE(SN(max)     < SN(max/2));
-    BOOST_REQUIRE(SN(max/2+1) < SN(0));
-    BOOST_REQUIRE(SN(max/2+1) < SN(max));
-    BOOST_REQUIRE(SN(max)     < SN(0));
-}
-
-template<class Param> void do_nothing(const Param&) {}
-
-BOOST_AUTO_TEST_CASE(concatenate_const_const)
-{
-    const std::array<char, 10> a10{};
-    const std::array<char, 20> a20{};
-
-    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
-                                                           , asio::buffer(a20));
-
-    std::size_t size = 0;
-
-    for (const auto& b : concatenated) {
-        do_nothing(b);
-        ++size;
-    }
-
-    BOOST_REQUIRE_EQUAL(2, size);
-
-    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
-                       , asio::buffer_size(concatenated));
-}
-
-BOOST_AUTO_TEST_CASE(concatenate_const_mutable)
-{
-    const std::array<char, 10> a10{};
-    std::array<char, 20> a20{};
-
-    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
-                                                           , asio::buffer(a20));
-
-    std::size_t size = 0;
-
-    for (const auto& b : concatenated) {
-        do_nothing(b);
-        ++size;
-    }
-
-    BOOST_REQUIRE_EQUAL(2, size);
-
-    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
-                       , asio::buffer_size(concatenated));
-}
-
-BOOST_AUTO_TEST_CASE(concatenate_mutable_const)
-{
-    std::array<char, 10> a10{};
-    const std::array<char, 20> a20{};
-
-    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
-                                                           , asio::buffer(a20));
-
-    std::size_t size = 0;
-
-    for (const auto& b : concatenated) {
-        do_nothing(b);
-        ++size;
-    }
-
-    BOOST_REQUIRE_EQUAL(2, size);
-
-    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
-                       , asio::buffer_size(concatenated));
-}
-
-BOOST_AUTO_TEST_CASE(concatenate_mutable_mutable)
-{
-    std::array<char, 10> a10{};
-    std::array<char, 20> a20{};
-
-    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
-                                                           , asio::buffer(a20));
-
-    std::size_t size = 0;
-
-    for (const auto& b : concatenated) {
-        do_nothing(b);
-        ++size;
-    }
-
-    BOOST_REQUIRE_EQUAL(2, size);
-
-    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
-                       , asio::buffer_size(concatenated));
-}
-
-BOOST_AUTO_TEST_CASE(concatenate)
-{
-    using maidsafe::crux::detail::concatenate;
-
-    {
-        std::array<char, 10> a10;
-        std::array<char, 20> a20;
-
-        auto concatenated = concatenate(asio::buffer(a10), asio::buffer(a20));
-
-        std::size_t size = 0;
-
-        for (const auto& b : concatenated) {
-            do_nothing(b);
-            ++size;
-        }
-
-        BOOST_REQUIRE_EQUAL(2, size);
-
-        BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
-                           , asio::buffer_size(concatenated));
-
-        std::string test_data = "012345678910111213141516171819";
-
-        asio::buffer_copy( concatenated
-                         , asio::buffer(&test_data[0], test_data.size()));
-
-        BOOST_REQUIRE_EQUAL(to_string(a10), "0123456789");
-        BOOST_REQUIRE_EQUAL(to_string(a20), "10111213141516171819");
-    }
-
-
-    {
-        // Check if moving works correctly:
-        std::vector<asio::mutable_buffer> v1(10);
-        std::vector<asio::mutable_buffer> v2(20);
-
-        concatenate(std::move(v1), v2);
-        BOOST_REQUIRE_EQUAL(0, v1.size());
-        BOOST_REQUIRE_EQUAL(20, v2.size());
-    }
 }
 
 // FIXME: Add test for connect/accept only (no data exchange).

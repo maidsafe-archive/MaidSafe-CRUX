@@ -16,10 +16,13 @@ include_directories(".")
 # Tests
 ###############################################################################
 
-add_executable(test_core
-  core.cpp
+add_executable(crux_test
+  runner.cpp
+  sequence_number.cpp
+  concatenate.cpp
+  socket.cpp
 )
 add_definitions (-DBOOST_TEST_DYN_LINK)
-add_dependencies(test_core crux)
-target_link_libraries(test_core crux ${TEST_LIBS})
+add_dependencies(crux_test crux)
+target_link_libraries(crux_test crux ${TEST_LIBS})
 
