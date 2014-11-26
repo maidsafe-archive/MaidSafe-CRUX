@@ -18,16 +18,26 @@ class concatenated {
     using left_iterator  = typename LeftBuffers::const_iterator;
     using right_iterator = typename RightBuffers::const_iterator;
 
+    using left_value_type  = typename LeftBuffers::value_type;
+    using right_value_type = typename RightBuffers::value_type;
+
 public:
-    using value_type = typename LeftBuffers::value_type;
+    using value_type
+            = typename std::conditional< std::is_convertible< right_value_type
+                                                            , left_value_type
+                                                            >::value
+                                       , left_value_type
+                                       , right_value_type
+                                       >::type;
 
     class const_iterator {
     public:
         const_iterator& operator++();    // pre-increment
         const_iterator  operator++(int); // post-increment
 
-        const value_type& operator*();
-        value_type* operator->();
+        value_type operator*();
+        const value_type& operator*() const;
+        const value_type* operator->() const;
 
         bool operator==(const_iterator) const;
         bool operator!=(const_iterator) const;
@@ -53,7 +63,8 @@ public:
     concatenated(Left&& left, Right&& right)
         : left(std::forward<Left>(left))
         , right(std::forward<Right>(right))
-    {}
+    {
+    }
 
     const_iterator begin() const;
     const_iterator end()   const;
@@ -87,15 +98,26 @@ concatenated<Left, Right>::const_iterator::operator++(int) {
 }
 
 template<typename Left, typename Right>
-const typename concatenated<Left, Right>::value_type&
+typename concatenated<Left, Right>::value_type
 concatenated<Left, Right>::const_iterator::operator*() {
     return (left_current!= left_end) ? *left_current
                                      : *right_current;
 }
 
 template<typename Left, typename Right>
-typename concatenated<Left, Right>::value_type*
-concatenated<Left, Right>::const_iterator::operator->() {
+const typename concatenated<Left, Right>::value_type&
+concatenated<Left, Right>::const_iterator::operator*() const {
+    static_assert(std::is_same<left_value_type, right_value_type>::value
+                 , "Both buffers must be of same type");
+    return (left_current!= left_end) ? *left_current
+                                     : *right_current;
+}
+
+template<typename Left, typename Right>
+const typename concatenated<Left, Right>::value_type*
+concatenated<Left, Right>::const_iterator::operator->() const {
+    static_assert(std::is_same<left_value_type, right_value_type>::value
+                 , "Both buffers must be of same type");
     return &(this->operator*());
 }
 
