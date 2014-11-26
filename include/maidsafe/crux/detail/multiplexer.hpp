@@ -82,10 +82,11 @@ public:
 
     void start_receive();
 
+    next_layer_type& next_layer();
     const next_layer_type& next_layer() const;
 
 private:
-    multiplexer(next_layer_type&& socket);
+    multiplexer(next_layer_type&& udp_socket);
 
     void do_start_receive();
 
@@ -99,7 +100,7 @@ private:
                         AcceptHandler&& handler);
 
 private:
-    next_layer_type socket;
+    next_layer_type udp_socket;
 
     using socket_map = std::map<endpoint_type, socket_base *>;
     socket_map sockets;
@@ -139,8 +140,8 @@ std::shared_ptr<multiplexer> multiplexer::create(Types&&... args)
     return self;
 }
 
-inline multiplexer::multiplexer(next_layer_type&& socket)
-    : socket(std::move(socket))
+inline multiplexer::multiplexer(next_layer_type&& udp_socket)
+    : udp_socket(std::move(udp_socket))
     , receive_calls(0)
 {
 }
@@ -242,14 +243,15 @@ multiplexer::async_send_to(ConstBufferSequence&& buffers,
                        void(boost::system::error_code, std::size_t)>::type handler(std::forward<CompletionToken>(token));
 
     boost::asio::async_result<decltype(handler)> result(handler);
-    socket.async_send_to(concatenate( asio::buffer(dummy_header)
-                                    , std::forward<ConstBufferSequence>(buffers)),
-                         endpoint,
-                         [handler](const error_code& error, std::size_t size) mutable {
-                           handler( error
-                                  , (size >= header_size) ? size - header_size
-                                                          : 0);
-                         });
+    next_layer().async_send_to
+        (concatenate( asio::buffer(dummy_header)
+                      , std::forward<ConstBufferSequence>(buffers)),
+         endpoint,
+         [handler](const error_code& error, std::size_t size) mutable {
+            handler( error
+                     , (size >= header_size) ? size - header_size
+                     : 0);
+        });
     return result.get();
 }
 
@@ -267,10 +269,10 @@ inline void multiplexer::do_start_receive()
 
     // We need to read with at least one zero sized buffer to
     // get the remote_endpoint information.
-    socket.async_receive_from
+    next_layer().async_receive_from
         (boost::asio::buffer(static_cast<char*>(nullptr), 0),
          next_remote_endpoint,
-         decltype(socket)::message_peek,
+         std::remove_reference<decltype(next_layer())>::type::message_peek,
          [self]
          (boost::system::error_code error, std::size_t size) mutable
          {
@@ -292,7 +294,7 @@ void multiplexer::process_peek(boost::system::error_code error,
     auto recipient = sockets.find(remote_endpoint);
 
     next_layer_type::bytes_readable command(true);
-    socket.io_control(command);
+    next_layer().io_control(command);
     std::size_t datagram_size = command.get();
 
     if (datagram_size < header_size) {
@@ -309,7 +311,7 @@ void multiplexer::process_peek(boost::system::error_code error,
     {
         auto payload = std::make_shared<buffer_type>(payload_size);
 
-        socket.receive_from
+        next_layer().receive_from
             ( concatenate(asio::buffer(header_data), asio::buffer(*payload))
             , remote_endpoint
             , next_layer_type::message_flags()
@@ -338,20 +340,22 @@ void multiplexer::process_peek(boost::system::error_code error,
         std::shared_ptr<buffer_type> payload;
 
         if (recv_buffers) {
-            socket.receive_from( concatenate( asio::buffer(header_data)
-                                            , std::move(*recv_buffers))
-                               , remote_endpoint
-                               , next_layer_type::message_flags()
-                               , error );
+            next_layer().receive_from
+                ( concatenate( asio::buffer(header_data)
+                               , std::move(*recv_buffers))
+                  , remote_endpoint
+                  , next_layer_type::message_flags()
+                  , error );
         }
         else {
             payload = std::make_shared<buffer_type>(payload_size);
 
-            socket.receive_from( concatenate( asio::buffer(header_data)
-                                            , asio::buffer(*payload))
-                               , remote_endpoint
-                               , next_layer_type::message_flags()
-                               , error );
+            next_layer().receive_from
+                ( concatenate( asio::buffer(header_data)
+                               , asio::buffer(*payload))
+                  , remote_endpoint
+                  , next_layer_type::message_flags()
+                  , error );
         }
 
         crux_socket.enqueue(error, payload_size, payload);
@@ -363,9 +367,14 @@ void multiplexer::process_peek(boost::system::error_code error,
     }
 }
 
+inline multiplexer::next_layer_type& multiplexer::next_layer()
+{
+    return udp_socket;
+}
+
 inline const multiplexer::next_layer_type& multiplexer::next_layer() const
 {
-    return socket;
+    return udp_socket;
 }
 
 } // namespace detail
