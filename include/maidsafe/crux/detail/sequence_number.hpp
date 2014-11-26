@@ -61,8 +61,8 @@ template<typename NumericType>
 bool sequence_number<NumericType>::operator<(sequence_number other) const {
     constexpr auto max = std::numeric_limits<NumericType>::max();
 
-    return (other.n > n) && (other.n - n <= max/2) 
-        || (other.n < n) && (n - other.n >  max/2);
+    return ((other.n > n) && (other.n - n <= max/2))
+        || ((other.n < n) && (n - other.n >  max/2));
 }
 
 template<typename NumericType>

@@ -44,6 +44,8 @@ BOOST_AUTO_TEST_CASE(sequence_number)
     BOOST_REQUIRE(SN(max)     < SN(0));
 }
 
+template<class Param> void do_nothing(const Param&) {}
+
 BOOST_AUTO_TEST_CASE(concatenate_const_const)
 {
     const std::array<char, 10> a10{};
@@ -55,6 +57,7 @@ BOOST_AUTO_TEST_CASE(concatenate_const_const)
     std::size_t size = 0;
 
     for (const auto& b : concatenated) {
+        do_nothing(b);
         ++size;
     }
 
@@ -75,6 +78,7 @@ BOOST_AUTO_TEST_CASE(concatenate_const_mutable)
     std::size_t size = 0;
 
     for (const auto& b : concatenated) {
+        do_nothing(b);
         ++size;
     }
 
@@ -95,6 +99,7 @@ BOOST_AUTO_TEST_CASE(concatenate_mutable_const)
     std::size_t size = 0;
 
     for (const auto& b : concatenated) {
+        do_nothing(b);
         ++size;
     }
 
@@ -115,6 +120,7 @@ BOOST_AUTO_TEST_CASE(concatenate_mutable_mutable)
     std::size_t size = 0;
 
     for (const auto& b : concatenated) {
+        do_nothing(b);
         ++size;
     }
 
@@ -137,6 +143,7 @@ BOOST_AUTO_TEST_CASE(concatenate)
         std::size_t size = 0;
 
         for (const auto& b : concatenated) {
+            do_nothing(b);
             ++size;
         }
 
