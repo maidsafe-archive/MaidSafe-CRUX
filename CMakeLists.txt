@@ -37,6 +37,16 @@ include_directories(BEFORE ${Boost_INCLUDE_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
 set(TEST_LIBS ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_LIBRARIES})
 
+# Workaround
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.5.0)
+  else()
+    # Asio uses an outdated check for std::array, which fails to detect support
+    # of std::array in clang 3.5 with libstdc++
+    add_definitions(-DBOOST_ASIO_HAS_STD_ARRAY=1)
+  endif()
+endif()
+
 ###############################################################################
 # Crux package
 ###############################################################################
