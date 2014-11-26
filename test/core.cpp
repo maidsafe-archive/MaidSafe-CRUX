@@ -14,6 +14,7 @@
 #include <boost/system/error_code.hpp>
 #include <maidsafe/crux/socket.hpp>
 #include <maidsafe/crux/acceptor.hpp>
+#include <maidsafe/crux/detail/sequence_number.hpp>
 
 namespace asio = boost::asio;
 using error_code    = boost::system::error_code;
@@ -26,6 +27,21 @@ static std::string to_string(const std::vector<char>& v) {
 template<std::size_t N>
 std::string to_string(const std::array<char, N>& v) {
     return std::string(v.begin(), v.end());
+}
+
+BOOST_AUTO_TEST_CASE(sequence_number)
+{
+    using T  = uint16_t;
+    using SN = maidsafe::crux::detail::sequence_number<T>;
+
+    constexpr auto max = std::numeric_limits<T>::max();
+
+    BOOST_REQUIRE(SN(0)       < SN(1));
+    BOOST_REQUIRE(SN(0)       < SN(max/2));
+    BOOST_REQUIRE(SN(max)     < SN(max/2));
+    BOOST_REQUIRE(SN(max/2+1) < SN(0));
+    BOOST_REQUIRE(SN(max/2+1) < SN(max));
+    BOOST_REQUIRE(SN(max)     < SN(0));
 }
 
 BOOST_AUTO_TEST_CASE(concatenate_const_const)
