@@ -11,6 +11,7 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_HEADER_HPP
 #define MAIDSAFE_CRUX_DETAIL_HEADER_HPP
 
+#include <cstdint>
 #include <array>
 
 namespace maidsafe
@@ -20,11 +21,23 @@ namespace crux
 namespace detail
 {
 
-typedef std::array<char, 32> header_data_type;
+namespace constant
+{
 
-class header {
-public:
-};
+const std::size_t header_size =
+    sizeof(std::uint16_t) // type
+    + sizeof(std::uint16_t) // ack-field
+    + sizeof(std::uint32_t) // sequence number
+    + sizeof(std::uint32_t); // ack sequence number
+
+const std::uint16_t type_mask = 0XF800;
+const std::uint16_t type_data = 0xC000;
+const std::uint16_t type_handshake = 0xC800;
+const std::uint16_t type_shutdown = 0xD000;
+
+} // namespace constant
+
+typedef std::array<std::uint8_t, constant::header_size> header_data_type;
 
 } // namespace detail
 } // namespace crux

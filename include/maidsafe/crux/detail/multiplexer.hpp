@@ -99,6 +99,10 @@ private:
                         const endpoint_type& remote_endpoint,
                         AcceptHandler&& handler);
 
+    template <typename ConnectHandler>
+    void send_handshake(const endpoint_type& remote_endpoint,
+                        ConnectHandler&& handler);
+
 private:
     next_layer_type udp_socket;
 
@@ -125,6 +129,7 @@ private:
 #include <boost/asio/buffer.hpp>
 #include <maidsafe/crux/detail/socket_base.hpp>
 #include <maidsafe/crux/detail/concatenate.hpp>
+#include <maidsafe/crux/detail/encoder.hpp>
 
 namespace maidsafe
 {
@@ -214,10 +219,27 @@ multiplexer::async_connect(SocketType& socket,
     handler_type handler(std::forward<decltype(token)>(token));
     boost::asio::async_result<decltype(handler)> result(handler);
 
-    // FIXME: Send handshake instead
-    socket.get_io_service().post
-        ([handler] () mutable
+    send_handshake(remote_endpoint, std::forward<decltype(handler)>(handler));
+    return result.get();
+}
+
+template <typename ConnectHandler>
+void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
+                                 ConnectHandler&& handler)
+{
+    auto handshake = std::make_shared<header_data_type>();
+    detail::encoder encoder(handshake->data(), handshake->size());
+    encoder.put<std::uint16_t>(constant::type_handshake);
+    encoder.put<std::uint16_t>(0); // FIXME: Version
+    encoder.put<std::uint32_t>(0); // FIXME: Initial sequence number
+    encoder.put<std::uint16_t>(0); // FIXME: Ack
+    next_layer().async_send_to
+        (boost::asio::buffer(*handshake),
+         remote_endpoint,
+         [handler, handshake] (boost::system::error_code, std::size_t) mutable
          {
+             // FIXME: Wait for response
+             // FIXME: Start retransmission timer
              boost::system::error_code success;
              handler(success);
          });
