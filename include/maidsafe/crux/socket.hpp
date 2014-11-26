@@ -252,14 +252,32 @@ socket::async_connect(const endpoint_type& remote_endpoint,
     }
     else
     {
-        get_io_service().post
-            ([this, remote_endpoint, handler] () mutable
-             {
-                 boost::system::error_code success;
-                 this->process_connect(success,
-                                       remote_endpoint,
-                                       std::forward<decltype(handler)>(handler));
-             });
+        switch (state)
+        {
+        case connectivity::closed:
+            state = connectivity::connecting;
+            multiplexer->async_connect
+                (*this,
+                 remote_endpoint,
+                 [this, remote_endpoint, handler]
+                 (boost::system::error_code error) mutable
+                 {
+                     this->process_connect(error,
+                                           remote_endpoint,
+                                           std::forward<handler_type>(handler));
+                 });
+            break;
+
+        case connectivity::established:
+            invoke_handler(std::forward<handler_type>(handler),
+                           boost::asio::error::already_connected);
+            break;
+
+        default:
+            invoke_handler(std::forward<handler_type>(handler),
+                           boost::asio::error::already_started);
+            break;
+        }
     }
     return result.get();
 }

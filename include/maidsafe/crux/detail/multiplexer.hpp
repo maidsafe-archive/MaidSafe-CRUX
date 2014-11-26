@@ -60,6 +60,16 @@ public:
     void async_accept(SocketType&,
                       AcceptHandler&& handler);
 
+    template <typename SocketType,
+              typename CompletionToken>
+    typename boost::asio::async_result<
+        typename boost::asio::handler_type<CompletionToken,
+                                           void(boost::system::error_code)>::type
+        >::type
+    async_connect(SocketType&,
+                  const endpoint_type& remote_endpoint,
+                  CompletionToken&& token);
+
     template <typename ConstBufferSequence,
               typename CompletionToken>
     typename boost::asio::async_result<
@@ -186,6 +196,30 @@ void multiplexer::process_accept(const boost::system::error_code& error,
         socket->enqueue(error, payload->size(), payload);
     }
     handler(error);
+}
+
+template <typename SocketType,
+          typename CompletionToken>
+typename boost::asio::async_result<
+    typename boost::asio::handler_type<CompletionToken,
+                                       void(boost::system::error_code)>::type
+    >::type
+multiplexer::async_connect(SocketType& socket,
+                           const endpoint_type& remote_endpoint,
+                           CompletionToken&& token)
+{
+    using handler_type = typename boost::asio::handler_type<CompletionToken,
+                                                            void(boost::system::error_code)>::type;
+    handler_type handler(std::forward<decltype(token)>(token));
+    boost::asio::async_result<decltype(handler)> result(handler);
+
+    // FIXME: Send handshake instead
+    socket.get_io_service().post
+        ([handler] () mutable
+         {
+             boost::system::error_code success;
+             handler(success);
+         });
 }
 
 template <typename ConstBufferSequence,
