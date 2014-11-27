@@ -28,6 +28,9 @@ public:
     template <typename RandomAccessIterator>
     decoder(RandomAccessIterator begin, RandomAccessIterator end);
 
+    template <typename RandomAccessIterator>
+    decoder(RandomAccessIterator begin, std::size_t size);
+
     bool empty() const;
     std::size_t size() const;
 
@@ -64,6 +67,13 @@ decoder::decoder(RandomAccessIterator begin,
 {
     current.begin = reinterpret_cast<const_iterator>(begin);
     current.end = reinterpret_cast<const_iterator>(end);
+}
+
+template <typename RandomAccessIterator>
+decoder::decoder(RandomAccessIterator begin, std::size_t size)
+{
+    current.begin = reinterpret_cast<const_iterator>(begin);
+    current.end = current.begin + size;
 }
 
 inline bool decoder::empty() const
