@@ -13,12 +13,17 @@
 
 namespace maidsafe { namespace crux { namespace detail {
 
-template<typename NumericType>
+template< typename NumericType
+        , NumericType Max = std::numeric_limits<NumericType>::max()
+        >
 class sequence_number {
+
     static_assert( std::is_integral<NumericType>::value
-                 , "NumericType must be an integral type");
-    static_assert( std::is_unsigned<NumericType>::value
+                   && std::is_unsigned<NumericType>::value
                  , "NumericType must be an unsigned integral type");
+
+public:
+    static constexpr NumericType max_value = Max;
 
 public:
     sequence_number();
@@ -30,6 +35,8 @@ public:
     bool operator<(sequence_number) const;
     bool operator==(sequence_number) const;
 
+    NumericType value() const { return n; }
+
 private:
     NumericType n;
 };
@@ -38,35 +45,43 @@ private:
 
 namespace maidsafe { namespace crux { namespace detail {
 
-template<typename NumericType>
-sequence_number<NumericType>::sequence_number()
+template<typename NumericType, NumericType Max>
+sequence_number<NumericType, Max>::sequence_number()
     : n(0) {}
 
-template<typename NumericType>
-sequence_number<NumericType>::sequence_number(NumericType n)
-    : n(n) {}
+template<typename NumericType, NumericType Max>
+sequence_number<NumericType, Max>::sequence_number(NumericType n)
+    : n(n)
+{
+    if (n > max_value)
+        throw std::runtime_error("invalid value");
+}
 
-template<typename NumericType>
-sequence_number<NumericType>& sequence_number<NumericType>::operator++() {
-    ++n;
+template<typename NumericType, NumericType Max>
+sequence_number<NumericType, Max>&
+sequence_number<NumericType, Max>::operator++() {
+    if (n < Max) { ++n; } else { n = 0; }
     return *this;
 }
 
-template<typename NumericType>
-sequence_number<NumericType> sequence_number<NumericType>::operator++(int) {
-    return sequence_number(n++);
+template<typename NumericType, NumericType Max>
+sequence_number<NumericType, Max>
+sequence_number<NumericType, Max>::operator++(int) {
+    NumericType old_n = n;
+    if (n < Max) { ++n; } else { n = 0; }
+    return sequence_number(old_n);
 }
 
-template<typename NumericType>
-bool sequence_number<NumericType>::operator<(sequence_number other) const {
-    constexpr auto max = std::numeric_limits<NumericType>::max();
-
-    return ((other.n > n) && (other.n - n <= max/2))
-        || ((other.n < n) && (n - other.n >  max/2));
+template<typename NumericType, NumericType Max>
+bool sequence_number<NumericType, Max>::operator<(sequence_number other) const
+{
+    return ((other.n > n) && (other.n - n <= Max/2))
+        || ((other.n < n) && (n - other.n >  Max/2));
 }
 
-template<typename NumericType>
-bool sequence_number<NumericType>::operator==(sequence_number other) const {
+template<typename NumericType, NumericType Max>
+bool sequence_number<NumericType, Max>::operator==(sequence_number other) const
+{
     return n == other.n;
 }
 
