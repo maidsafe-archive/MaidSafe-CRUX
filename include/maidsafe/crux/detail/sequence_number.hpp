@@ -60,8 +60,7 @@ sequence_number<NumericType, Max>::sequence_number(NumericType n)
 template<typename NumericType, NumericType Max>
 sequence_number<NumericType, Max>&
 sequence_number<NumericType, Max>::operator++() {
-    ++n;
-    if (n > Max) { n %= Max + 1; }
+    if (n < Max) { ++n; } else { n = 0; }
     return *this;
 }
 
@@ -69,20 +68,20 @@ template<typename NumericType, NumericType Max>
 sequence_number<NumericType, Max>
 sequence_number<NumericType, Max>::operator++(int) {
     NumericType old_n = n;
-    ++n;
-    if (n > Max) { n %= Max + 1; }
+    if (n < Max) { ++n; } else { n = 0; }
     return sequence_number(old_n);
 }
 
 template<typename NumericType, NumericType Max>
-bool sequence_number<NumericType, Max>::operator<(sequence_number other) const {
-
+bool sequence_number<NumericType, Max>::operator<(sequence_number other) const
+{
     return ((other.n > n) && (other.n - n <= Max/2))
         || ((other.n < n) && (n - other.n >  Max/2));
 }
 
 template<typename NumericType, NumericType Max>
-bool sequence_number<NumericType, Max>::operator==(sequence_number other) const {
+bool sequence_number<NumericType, Max>::operator==(sequence_number other) const
+{
     return n == other.n;
 }
 
