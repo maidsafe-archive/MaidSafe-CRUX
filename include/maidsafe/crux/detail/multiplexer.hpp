@@ -25,6 +25,7 @@
 
 #include <maidsafe/crux/detail/buffer.hpp>
 #include <maidsafe/crux/detail/header.hpp>
+#include <maidsafe/crux/detail/sequence_number.hpp>
 
 namespace maidsafe
 {
@@ -46,6 +47,7 @@ public:
     using next_layer_type = protocol_type::socket;
     using endpoint_type = protocol_type::endpoint;
     using buffer_type = detail::buffer;
+    using sequence_number_type = detail::sequence_number<std::uint32_t>;
 
     template <typename... Types>
     static std::shared_ptr<multiplexer> create(Types&&...);
@@ -60,16 +62,6 @@ public:
     void async_accept(SocketType&,
                       AcceptHandler&& handler);
 
-    template <typename SocketType,
-              typename CompletionToken>
-    typename boost::asio::async_result<
-        typename boost::asio::handler_type<CompletionToken,
-                                           void(boost::system::error_code)>::type
-        >::type
-    async_connect(SocketType&,
-                  const endpoint_type& remote_endpoint,
-                  CompletionToken&& token);
-
     template <typename ConstBufferSequence,
               typename CompletionToken>
     typename boost::asio::async_result<
@@ -79,6 +71,12 @@ public:
     async_send_to(ConstBufferSequence&& buffers,
                   const endpoint_type& endpoint,
                   CompletionToken&& token);
+
+    template <typename ConnectHandler>
+    void send_handshake(const endpoint_type& remote_endpoint,
+                        sequence_number_type initial,
+                        std::size_t retransmission_count,
+                        ConnectHandler&& handler);
 
     void start_receive();
 
@@ -98,10 +96,6 @@ private:
                         std::shared_ptr<buffer_type> datagram,
                         const endpoint_type& remote_endpoint,
                         AcceptHandler&& handler);
-
-    template <typename ConnectHandler>
-    void send_handshake(const endpoint_type& remote_endpoint,
-                        ConnectHandler&& handler);
 
 private:
     next_layer_type udp_socket;
@@ -125,6 +119,7 @@ private:
 } // namespace maidsafe
 
 #include <cassert>
+#include <algorithm>
 #include <utility>
 #include <boost/asio/buffer.hpp>
 #include <maidsafe/crux/detail/socket_base.hpp>
@@ -204,44 +199,26 @@ void multiplexer::process_accept(const boost::system::error_code& error,
     handler(error);
 }
 
-template <typename SocketType,
-          typename CompletionToken>
-typename boost::asio::async_result<
-    typename boost::asio::handler_type<CompletionToken,
-                                       void(boost::system::error_code)>::type
-    >::type
-multiplexer::async_connect(SocketType& socket,
-                           const endpoint_type& remote_endpoint,
-                           CompletionToken&& token)
-{
-    using handler_type = typename boost::asio::handler_type<CompletionToken,
-                                                            void(boost::system::error_code)>::type;
-    handler_type handler(std::forward<decltype(token)>(token));
-    boost::asio::async_result<decltype(handler)> result(handler);
-
-    send_handshake(remote_endpoint, std::forward<decltype(handler)>(handler));
-    return result.get();
-}
-
 template <typename ConnectHandler>
 void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
+                                 sequence_number_type initial,
+                                 std::size_t retransmission_count,
                                  ConnectHandler&& handler)
 {
     auto handshake = std::make_shared<header_data_type>();
     detail::encoder encoder(handshake->data(), handshake->size());
-    encoder.put<std::uint16_t>(constant::type_handshake);
-    encoder.put<std::uint16_t>(0); // FIXME: Version
-    encoder.put<std::uint32_t>(0); // FIXME: Initial sequence number
+    encoder.put<std::uint16_t>(constant::type_handshake
+                               | std::min<std::size_t>(3, retransmission_count));
+    encoder.put<std::uint16_t>(constant::version);
+    encoder.put<std::uint32_t>(initial.value());
     encoder.put<std::uint16_t>(0); // FIXME: Ack
     next_layer().async_send_to
         (boost::asio::buffer(*handshake),
          remote_endpoint,
-         [handler, handshake] (boost::system::error_code, std::size_t) mutable
+         [handler, handshake] (boost::system::error_code error, std::size_t length) mutable
          {
-             // FIXME: Wait for response
-             // FIXME: Start retransmission timer
-             boost::system::error_code success;
-             handler(success);
+             assert(length == handshake->size());
+             handler(error);
          });
 }
 

@@ -24,6 +24,8 @@ namespace detail
 namespace constant
 {
 
+const std::size_t version = 0;
+
 const std::size_t header_size =
     sizeof(std::uint16_t) // type
     + sizeof(std::uint16_t) // ack-field

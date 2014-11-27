@@ -256,9 +256,10 @@ socket::async_connect(const endpoint_type& remote_endpoint,
         {
         case connectivity::closed:
             state = connectivity::connecting;
-            multiplexer->async_connect
-                (*this,
-                 remote_endpoint,
+            multiplexer->send_handshake
+                (remote_endpoint,
+                 detail::multiplexer::sequence_number_type(0), // FIXME
+                 0,
                  [this, remote_endpoint, handler]
                  (boost::system::error_code error) mutable
                  {
@@ -287,6 +288,8 @@ void socket::process_connect(const boost::system::error_code& error,
                              const endpoint_type& remote_endpoint,
                              ConnectHandler&& handler)
 {
+    // FIXME: Wait for response
+    // FIXME: Start retransmission timer
     // FIXME: Remove from multiplexer if already connected to different remote endpoint?
     if (!error)
     {
