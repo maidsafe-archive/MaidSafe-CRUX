@@ -32,13 +32,25 @@ class socket_base : public boost::asio::socket_base
 public:
     using endpoint_type = boost::asio::ip::udp::endpoint;
 
-    socket_base() : state(connectivity::closed) {}
+    socket_base() : state_value(connectivity::closed) {}
     virtual ~socket_base() {}
 
     endpoint_type remote_endpoint() const { return remote; }
 
 protected:
     friend class multiplexer;
+
+    enum struct connectivity
+    {
+        closed,
+        listening,
+        connecting,
+        handshaking,
+        established
+    };
+
+    connectivity state() const { return state_value; }
+    void state(connectivity value) { state_value = value; }
 
     void remote_endpoint(const endpoint_type& r) { remote = r; }
 
@@ -50,14 +62,7 @@ protected:
 
 protected:
     endpoint_type remote;
-    enum struct connectivity
-    {
-        closed,
-        listening,
-        connecting,
-        handshaking,
-        established
-    } state;
+    connectivity state_value;
 };
 
 }}} // namespace maidsafe::crux::detail
