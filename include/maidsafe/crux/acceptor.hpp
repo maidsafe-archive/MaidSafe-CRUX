@@ -32,13 +32,22 @@ public:
     acceptor(boost::asio::io_service& io,
              endpoint_type local_endpoint);
 
-    template <typename AcceptHandler>
-    void async_accept(socket_type& socket,
-                      AcceptHandler&& handler);
+    template <typename CompletionToken>
+    typename boost::asio::async_result<
+        typename boost::asio::handler_type<CompletionToken,
+                                           void(boost::system::error_code)>::type
+        >::type
+    async_accept(socket_type& socket,
+                 CompletionToken&& token);
 
     endpoint_type local_endpoint() const;
 
 private:
+    template <typename Handler,
+              typename ErrorCode>
+    void invoke_handler(Handler&& handler,
+                        ErrorCode error);
+
     template <typename AcceptHandler>
     void process_accept(const boost::system::error_code& error,
                         socket_type& socket,
@@ -67,19 +76,35 @@ inline acceptor::acceptor(boost::asio::io_service& io,
 {
 }
 
-template <typename AcceptHandler>
-void acceptor::async_accept(socket_type& socket,
-                            AcceptHandler&& handler)
+template <typename CompletionToken>
+typename boost::asio::async_result<
+    typename boost::asio::handler_type<CompletionToken,
+                                       void(boost::system::error_code)>::type
+    >::type
+acceptor::async_accept(socket_type& socket,
+                       CompletionToken&& token)
 {
-    assert(multiplexer);
+    using handler_type = typename boost::asio::handler_type<CompletionToken,
+                                                            void(boost::system::error_code)>::type;
+    handler_type handler(std::forward<decltype(token)>(token));
+    boost::asio::async_result<decltype(handler)> result(handler);
 
-    multiplexer->async_accept
-        (socket,
-         [this, &socket, handler]
-         (const boost::system::error_code& error)
-         {
-             this->process_accept(error, socket, handler);
-         });
+    if (!multiplexer)
+    {
+        invoke_handler(std::forward<handler_type>(handler),
+                       boost::asio::error::invalid_argument);
+    }
+    else
+    {
+        multiplexer->async_accept
+            (socket,
+             [this, &socket, handler]
+             (const boost::system::error_code& error)
+             {
+                 this->process_accept(error, socket, handler);
+             });
+    }
+    result.get();
 }
 
 template <typename AcceptHandler>
@@ -111,6 +136,20 @@ acceptor::endpoint_type acceptor::local_endpoint() const
     assert(multiplexer);
 
     return multiplexer->next_layer().local_endpoint();
+}
+
+template <typename Handler,
+          typename ErrorCode>
+void acceptor::invoke_handler(Handler&& handler,
+                              ErrorCode error)
+{
+    assert(error);
+
+    get_io_service().post
+        ([handler, error]() mutable
+         {
+             handler(boost::asio::error::make_error_code(error));
+         });
 }
 
 } // namespace crux
