@@ -96,13 +96,29 @@ acceptor::async_accept(socket_type& socket,
     }
     else
     {
-        multiplexer->async_accept
-            (socket,
-             [this, &socket, handler]
-             (const boost::system::error_code& error)
-             {
-                 this->process_accept(error, socket, handler);
-             });
+        switch (socket.state())
+        {
+        case socket_type::connectivity::closed:
+            socket.state(socket_type::connectivity::listening);
+            multiplexer->async_accept
+                (socket,
+                 [this, &socket, handler]
+                 (const boost::system::error_code& error)
+                 {
+                     this->process_accept(error, socket, handler);
+                 });
+            break;
+
+        case socket_type::connectivity::established:
+            invoke_handler(std::forward<decltype(handler)>(handler),
+                           boost::asio::error::already_connected);
+            break;
+
+        default:
+            invoke_handler(std::forward<decltype(handler)>(handler),
+                           boost::asio::error::already_started);
+            break;
+        }
     }
     result.get();
 }
