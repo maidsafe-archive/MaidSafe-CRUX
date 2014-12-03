@@ -18,8 +18,8 @@ namespace maidsafe { namespace crux { namespace detail {
 
 struct receive_output_type
 {
-    boost::system::error_code          error;
-    std::shared_ptr<std::vector<char>> data;
+    boost::system::error_code error;
+    std::shared_ptr<detail::buffer> data;
 };
 
 }}} // namespace maidsafe::crux::detail
