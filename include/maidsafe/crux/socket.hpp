@@ -252,10 +252,10 @@ socket::async_connect(const endpoint_type& remote_endpoint,
     }
     else
     {
-        switch (state)
+        switch (state())
         {
         case connectivity::closed:
-            state = connectivity::connecting;
+            state(connectivity::connecting);
             multiplexer->send_handshake
                 (remote_endpoint,
                  detail::multiplexer::sequence_number_type(0), // FIXME
