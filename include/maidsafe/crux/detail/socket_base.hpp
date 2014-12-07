@@ -56,9 +56,9 @@ protected:
 
     virtual std::vector<boost::asio::mutable_buffer>* get_recv_buffers() = 0;
 
-    virtual void enqueue(const boost::system::error_code&,
-                         std::size_t bytes_transferred,
-                         std::shared_ptr<detail::buffer>) = 0;
+    virtual void process_data(const boost::system::error_code&,
+                              std::size_t bytes_transferred,
+                              std::shared_ptr<detail::buffer>) = 0;
 
 protected:
     endpoint_type remote;

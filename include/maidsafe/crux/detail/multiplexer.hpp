@@ -194,7 +194,7 @@ void multiplexer::process_accept(const boost::system::error_code& error,
     {
         socket->remote_endpoint(current_remote_endpoint);
         // Queue payload for later use
-        socket->enqueue(error, payload->size(), payload);
+        socket->process_data(error, payload->size(), payload);
     }
     handler(error);
 }
@@ -357,7 +357,7 @@ void multiplexer::process_peek(boost::system::error_code error,
                   , error );
         }
 
-        crux_socket.enqueue(error, payload_size, payload);
+        crux_socket.process_data(error, payload_size, payload);
     }
 
     if (--receive_calls  > 0)

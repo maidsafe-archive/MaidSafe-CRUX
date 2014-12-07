@@ -110,34 +110,9 @@ private:
         return &receive_input_queue.front()->buffers;
     }
 
-    void enqueue(const boost::system::error_code& error,
-                 std::size_t payload_size,
-                 std::shared_ptr<detail::buffer> payload) override
-    {
-        // FIXME: Thread-safe
-        if (receive_input_queue.empty())
-        {
-            assert(payload && payload->size() == payload_size);
-
-            using detail::receive_output_type;
-
-            std::unique_ptr<receive_output_type>
-                operation(new receive_output_type({ error, payload }));
-
-            receive_output_queue.emplace(std::move(operation));
-        }
-        else
-        {
-            assert(!payload);
-
-            auto input = std::move(receive_input_queue.front());
-            receive_input_queue.pop();
-
-            process_receive( error
-                           , payload_size
-                           , std::move(input->handler));
-        }
-    }
+    virtual void process_data(const boost::system::error_code& error,
+                              std::size_t payload_size,
+                              std::shared_ptr<detail::buffer> payload) override;
 
     void process_receive( const boost::system::error_code& error
                         , std::size_t                      bytes_received
@@ -497,6 +472,34 @@ void socket::process_receive( const boost::system::error_code& error
                             , read_handler_type&&              handler)
 {
     handler(error, bytes_received);
+}
+
+inline
+void socket::process_data(const boost::system::error_code& error,
+                          std::size_t payload_size,
+                          std::shared_ptr<detail::buffer> payload)
+{
+    // FIXME: Thread-safe
+    if (receive_input_queue.empty())
+    {
+        assert(payload && payload->size() == payload_size);
+
+        using detail::receive_output_type;
+
+        std::unique_ptr<receive_output_type>
+            operation(new receive_output_type({ error, payload }));
+
+        receive_output_queue.emplace(std::move(operation));
+    }
+    else
+    {
+        assert(!payload);
+
+        auto input = std::move(receive_input_queue.front());
+        receive_input_queue.pop();
+
+        process_receive(error, payload_size, std::move(input->handler));
+    }
 }
 
 template <typename Handler,
