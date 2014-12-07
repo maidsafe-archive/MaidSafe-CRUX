@@ -25,7 +25,7 @@
 
 #include <maidsafe/crux/detail/buffer.hpp>
 #include <maidsafe/crux/detail/header.hpp>
-#include <maidsafe/crux/detail/sequence_number.hpp>
+#include <maidsafe/crux/detail/socket_base.hpp>
 
 namespace maidsafe
 {
@@ -33,8 +33,6 @@ namespace crux
 {
 namespace detail
 {
-
-class socket_base;
 
 // FIXME: Thread-safety (strand?)
 
@@ -47,7 +45,7 @@ public:
     using next_layer_type = protocol_type::socket;
     using endpoint_type = protocol_type::endpoint;
     using buffer_type = detail::buffer;
-    using sequence_number_type = detail::sequence_number<std::uint32_t>;
+    using sequence_number_type = socket_base::sequence_number_type;
 
     template <typename... Types>
     static std::shared_ptr<multiplexer> create(Types&&...);

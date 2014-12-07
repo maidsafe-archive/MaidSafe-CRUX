@@ -18,7 +18,7 @@
 #include <boost/asio/ip/udp.hpp>
 
 #include <maidsafe/crux/detail/buffer.hpp>
-#include <maidsafe/crux/detail/header.hpp>
+#include <maidsafe/crux/detail/sequence_number.hpp>
 
 namespace maidsafe
 {
@@ -39,6 +39,8 @@ public:
 
 protected:
     friend class multiplexer;
+
+    using sequence_number_type = detail::sequence_number<std::uint32_t>;
 
     enum struct connectivity
     {
