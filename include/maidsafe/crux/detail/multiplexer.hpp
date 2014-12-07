@@ -207,9 +207,9 @@ void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
 {
     auto handshake = std::make_shared<header_data_type>();
     detail::encoder encoder(handshake->data(), handshake->size());
-    encoder.put<std::uint16_t>(constant::type_handshake
+    encoder.put<std::uint16_t>(constant::header::type_handshake
                                | std::min<std::size_t>(3, retransmission_count));
-    encoder.put<std::uint16_t>(constant::version);
+    encoder.put<std::uint16_t>(constant::header::version);
     encoder.put<std::uint32_t>(initial.value());
     encoder.put<std::uint16_t>(0); // FIXME: Ack
     next_layer().async_send_to

@@ -20,13 +20,14 @@ namespace crux
 {
 namespace detail
 {
-
 namespace constant
+{
+namespace header
 {
 
 const std::size_t version = 0;
 
-const std::size_t header_size =
+const std::size_t size =
     sizeof(std::uint16_t) // type
     + sizeof(std::uint16_t) // ack-field
     + sizeof(std::uint32_t) // sequence number
@@ -37,9 +38,10 @@ const std::uint16_t type_data = 0xC000;
 const std::uint16_t type_handshake = 0xC800;
 const std::uint16_t type_shutdown = 0xD000;
 
+} // namespace header
 } // namespace constant
 
-typedef std::array<std::uint8_t, constant::header_size> header_data_type;
+typedef std::array<std::uint8_t, constant::header::size> header_data_type;
 
 } // namespace detail
 } // namespace crux
