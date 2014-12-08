@@ -21,11 +21,13 @@ static std::string to_string(const std::vector<char>& v) {
     return std::string(v.begin(), v.end());
 }
 
+BOOST_AUTO_TEST_SUITE(socket_suite)
+
 // FIXME: Add test for connect/accept only (no data exchange).
 // This is currently not possible since we don't have the
 // handshake in place yet.
 
-BOOST_AUTO_TEST_CASE(sigle_send_and_receive)
+BOOST_AUTO_TEST_CASE(single_send_and_receive)
 {
     using namespace maidsafe;
     using udp = asio::ip::udp;
@@ -215,3 +217,4 @@ BOOST_AUTO_TEST_CASE(single_exchange)
     ios.run();
 }
 
+BOOST_AUTO_TEST_SUITE_END()

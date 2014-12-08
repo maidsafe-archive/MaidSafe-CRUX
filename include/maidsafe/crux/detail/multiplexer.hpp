@@ -25,7 +25,7 @@
 
 #include <maidsafe/crux/detail/buffer.hpp>
 #include <maidsafe/crux/detail/header.hpp>
-#include <maidsafe/crux/detail/sequence_number.hpp>
+#include <maidsafe/crux/detail/socket_base.hpp>
 
 namespace maidsafe
 {
@@ -33,8 +33,6 @@ namespace crux
 {
 namespace detail
 {
-
-class socket_base;
 
 // FIXME: Thread-safety (strand?)
 
@@ -47,7 +45,7 @@ public:
     using next_layer_type = protocol_type::socket;
     using endpoint_type = protocol_type::endpoint;
     using buffer_type = detail::buffer;
-    using sequence_number_type = detail::sequence_number<std::uint32_t>;
+    using sequence_number_type = socket_base::sequence_number_type;
 
     template <typename... Types>
     static std::shared_ptr<multiplexer> create(Types&&...);
@@ -194,7 +192,7 @@ void multiplexer::process_accept(const boost::system::error_code& error,
     {
         socket->remote_endpoint(current_remote_endpoint);
         // Queue payload for later use
-        socket->enqueue(error, payload->size(), payload);
+        socket->process_data(error, payload->size(), payload);
     }
     handler(error);
 }
@@ -207,9 +205,9 @@ void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
 {
     auto handshake = std::make_shared<header_data_type>();
     detail::encoder encoder(handshake->data(), handshake->size());
-    encoder.put<std::uint16_t>(constant::type_handshake
+    encoder.put<std::uint16_t>(constant::header::type_handshake
                                | std::min<std::size_t>(3, retransmission_count));
-    encoder.put<std::uint16_t>(constant::version);
+    encoder.put<std::uint16_t>(constant::header::version);
     encoder.put<std::uint32_t>(initial.value());
     encoder.put<std::uint16_t>(0); // FIXME: Ack
     next_layer().async_send_to
@@ -357,7 +355,7 @@ void multiplexer::process_peek(boost::system::error_code error,
                   , error );
         }
 
-        crux_socket.enqueue(error, payload_size, payload);
+        crux_socket.process_data(error, payload_size, payload);
     }
 
     if (--receive_calls  > 0)

@@ -18,7 +18,7 @@
 #include <boost/asio/ip/udp.hpp>
 
 #include <maidsafe/crux/detail/buffer.hpp>
-#include <maidsafe/crux/detail/header.hpp>
+#include <maidsafe/crux/detail/sequence_number.hpp>
 
 namespace maidsafe
 {
@@ -40,6 +40,8 @@ public:
 protected:
     friend class multiplexer;
 
+    using sequence_number_type = detail::sequence_number<std::uint32_t>;
+
     enum struct connectivity
     {
         closed,
@@ -56,9 +58,9 @@ protected:
 
     virtual std::vector<boost::asio::mutable_buffer>* get_recv_buffers() = 0;
 
-    virtual void enqueue(const boost::system::error_code&,
-                         std::size_t bytes_transferred,
-                         std::shared_ptr<detail::buffer>) = 0;
+    virtual void process_data(const boost::system::error_code&,
+                              std::size_t bytes_transferred,
+                              std::shared_ptr<detail::buffer>) = 0;
 
 protected:
     endpoint_type remote;
