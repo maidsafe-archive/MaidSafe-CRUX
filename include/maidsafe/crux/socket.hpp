@@ -15,6 +15,7 @@
 #include <memory>
 #include <tuple>
 
+#include <boost/optional.hpp>
 #include <boost/asio/basic_io_object.hpp>
 #include <boost/asio/async_result.hpp>
 #include <boost/asio/buffer.hpp>
@@ -110,6 +111,10 @@ private:
         return &receive_input_queue.front()->buffers;
     }
 
+    virtual void process_handshake(sequence_number_type initial,
+                                   endpoint_type remote_endpoint) override;
+    virtual void process_acknowledgement(sequence_number_type ack,
+                                         std::uint16_t ackfield) override;
     virtual void process_data(const boost::system::error_code& error,
                               std::size_t payload_size,
                               std::shared_ptr<detail::buffer> payload) override;
@@ -157,6 +162,9 @@ private:
 
     std::queue<std::unique_ptr<detail::receive_input_type>> receive_input_queue;
     std::queue<std::unique_ptr<detail::receive_output_type>> receive_output_queue;
+
+    using connect_handler_type = std::function<void (const boost::system::error_code&)>;
+    boost::optional<connect_handler_type> connect_handler;
 };
 
 } // namespace crux
@@ -189,9 +197,9 @@ inline socket::~socket()
 {
     if (multiplexer)
     {
+        get_service().remove(local_endpoint());
         multiplexer->remove(this);
     }
-    get_service().remove(local_endpoint());
 }
 
 inline boost::asio::io_service& socket::get_io_service()
@@ -231,9 +239,12 @@ socket::async_connect(const endpoint_type& remote_endpoint,
         {
         case connectivity::closed:
             state(connectivity::connecting);
+            remote = remote_endpoint;
+            multiplexer->add(this);
             multiplexer->send_handshake
                 (remote_endpoint,
                  detail::multiplexer::sequence_number_type(0), // FIXME
+                 boost::none,
                  0,
                  [this, remote_endpoint, handler]
                  (boost::system::error_code error) mutable
@@ -263,16 +274,29 @@ void socket::process_connect(const boost::system::error_code& error,
                              const endpoint_type& remote_endpoint,
                              ConnectHandler&& handler)
 {
-    // FIXME: Wait for response
-    // FIXME: Start retransmission timer
-    // FIXME: Remove from multiplexer if already connected to different remote endpoint?
-    if (!error)
+    if (error)
     {
-        assert(multiplexer);
-        remote = remote_endpoint;
-        multiplexer->add(this);
+        handler(error);
+        return;
     }
-    handler(error);
+    // FIXME: Start retransmission timer
+    switch (state())
+    {
+    case connectivity::connecting:
+        // Wait for handshake which arrives via process_handshake()
+        connect_handler = handler;
+        multiplexer->start_receive();
+        break;
+
+    case connectivity::established:
+        // FIXME: Remove from multiplexer if already connected to different remote endpoint?
+        handler(error);
+        break;
+
+    default:
+        assert(false);
+        break;
+    }
 }
 
 template <typename CompletionToken>
@@ -499,6 +523,86 @@ void socket::process_data(const boost::system::error_code& error,
         receive_input_queue.pop();
 
         process_receive(error, payload_size, std::move(input->handler));
+    }
+}
+
+inline
+void socket::process_handshake(sequence_number_type initial,
+                               endpoint_type remote_endpoint)
+{
+    switch (state())
+    {
+    case connectivity::listening:
+        assert(multiplexer);
+        multiplexer->send_handshake
+            (remote_endpoint,
+             sequence_number_type(0), // FIXME: Randomize
+             initial,
+             0, // FIXME
+             [this, remote_endpoint]
+             (boost::system::error_code error) mutable
+             {
+                 if (error)
+                 {
+                     state(connectivity::closed);
+                 }
+                 else
+                 {
+                     state(connectivity::handshaking);
+                     remote = remote_endpoint;
+                 }
+             });
+        break;
+
+    case connectivity::connecting:
+        state(connectivity::handshaking);
+        multiplexer->send_keepalive
+            (remote_endpoint,
+             sequence_number_type(0), // FIXME
+             initial,
+             0, // FIXME
+             [this, remote_endpoint]
+             (boost::system::error_code error) mutable
+             {
+                 state(error ? connectivity::closed : connectivity::established);
+                 if (connect_handler)
+                 {
+                     (*connect_handler)(error);
+                 }
+             });
+        break;
+
+    default:
+        // FIXME: If state == handshaking with the same remote_endpoint as before then remote probably crashed and attempts a new connection (allow reuse_address?)
+        assert(false);
+        break;
+    }
+}
+
+inline
+void socket::process_acknowledgement(sequence_number_type ack,
+                                     std::uint16_t ackfield)
+{
+    switch (state())
+    {
+    case connectivity::established:
+        // FIXME: Normal ack handling
+        if (connect_handler)
+        {
+            boost::system::error_code success;
+            (*connect_handler)(success);
+            connect_handler = boost::none;
+        }
+        break;
+
+    case connectivity::handshaking:
+        // FIXME: Check ack and ackfield
+        state(connectivity::established);
+        break;
+
+    default:
+        assert(false);
+        break;
     }
 }
 

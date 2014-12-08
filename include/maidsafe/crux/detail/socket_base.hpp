@@ -58,6 +58,12 @@ protected:
 
     virtual std::vector<boost::asio::mutable_buffer>* get_recv_buffers() = 0;
 
+    virtual void process_handshake(sequence_number_type initial,
+                                   endpoint_type remote_endpoint) = 0;
+
+    virtual void process_acknowledgement(sequence_number_type ack,
+                                         std::uint16_t ackfield) = 0;
+
     virtual void process_data(const boost::system::error_code&,
                               std::size_t bytes_transferred,
                               std::shared_ptr<detail::buffer>) = 0;

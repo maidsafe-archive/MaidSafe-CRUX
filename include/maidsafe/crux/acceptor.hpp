@@ -100,6 +100,7 @@ acceptor::async_accept(socket_type& socket,
         {
         case socket_type::connectivity::closed:
             socket.state(socket_type::connectivity::listening);
+            socket.set_multiplexer(multiplexer);
             multiplexer->async_accept
                 (socket,
                  [this, &socket, handler]
@@ -131,20 +132,15 @@ void acceptor::process_accept(const boost::system::error_code& error,
     switch (error.value())
     {
     case 0:
-        {
-            // FIXME: set local_endpoint?
-            socket.set_multiplexer(multiplexer);
-            multiplexer->add(&socket);
-            boost::system::error_code success;
-            handler(success);
-        }
+        // FIXME: set local_endpoint?
+        multiplexer->add(&socket);
         break;
 
     case boost::asio::error::operation_aborted:
     default:
-        handler(error);
         break;
     }
+    handler(error);
 }
 
 acceptor::endpoint_type acceptor::local_endpoint() const
