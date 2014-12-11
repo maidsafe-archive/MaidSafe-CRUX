@@ -64,14 +64,13 @@ public:
                       AcceptHandler&& handler);
 
     template <typename ConstBufferSequence,
-              typename CompletionToken>
-    typename boost::asio::async_result<
-        typename boost::asio::handler_type<CompletionToken,
-                                           void(boost::system::error_code, std::size_t)>::type
-        >::type
-    async_send_to(ConstBufferSequence&& buffers,
-                  const endpoint_type& endpoint,
-                  CompletionToken&& token);
+              typename WriteHandler>
+    void send_data(ConstBufferSequence&& buffers,
+                   const endpoint_type& endpoint,
+                   sequence_number_type sequence,
+                   boost::optional<sequence_number_type> ack,
+                   std::size_t retransmission_count,
+                   WriteHandler&& handler);
 
     template <typename ConnectHandler>
     void send_handshake(const endpoint_type& remote_endpoint,
@@ -263,40 +262,33 @@ void multiplexer::send_keepalive(const endpoint_type& remote_endpoint,
 }
 
 template <typename ConstBufferSequence,
-          typename CompletionToken>
-typename boost::asio::async_result<
-    typename boost::asio::handler_type<CompletionToken,
-                                       void(boost::system::error_code, std::size_t)>::type
-    >::type
-multiplexer::async_send_to(ConstBufferSequence&& buffers,
-                           const endpoint_type& endpoint,
-                           CompletionToken&& token)
+          typename WriteHandler>
+void multiplexer::send_data(ConstBufferSequence&& buffers,
+                            const endpoint_type& endpoint,
+                            sequence_number_type sequence,
+                            boost::optional<sequence_number_type> ack,
+                            std::size_t retransmission_count,
+                            WriteHandler&& handler)
 {
-    namespace asio = boost::asio;
-    using boost::system::error_code;
-
     // FIXME: Congestion control
-    using handler_type = typename boost::asio::handler_type<CompletionToken,
-                                                            void(boost::system::error_code, std::size_t)>::type;
-    handler_type handler(std::forward<decltype(token)>(token));
-    boost::asio::async_result<decltype(handler)> result(handler);
 
     auto header = std::make_shared<header_data_type>();
     detail::encoder encoder(header->data(), header->size());
-    encoder.put<std::uint16_t>(constant::header::type_data);
+    encoder.put<std::uint16_t>(constant::header::type_data
+                               | std::min<std::size_t>(3, retransmission_count)
+                               | (ack ? constant::header::mask_ack : 0));
     encoder.put<std::uint16_t>(0); // FIXME: ackfield
-    encoder.put<std::uint32_t>(0); // FIXME: sequence
-    encoder.put<std::uint32_t>(0); // FIXME: ack
+    encoder.put<std::uint32_t>(sequence.value());
+    encoder.put<std::uint32_t>(ack ? ack->value() : 0);
     next_layer().async_send_to
-        (concatenate( asio::buffer(*header)
-                      , std::forward<ConstBufferSequence>(buffers)),
+        (concatenate(boost::asio::buffer(*header),
+                     std::forward<ConstBufferSequence>(buffers)),
          endpoint,
-         [handler, header](const error_code& error, std::size_t size) mutable {
-            handler( error
-                     , (size >= header_size) ? size - header_size
-                     : 0);
+         [handler, header](const boost::system::error_code& error, std::size_t size) mutable
+         {
+             const auto bytes_transferred = (size >= header_size) ? size - header_size : 0;
+             handler(error, bytes_transferred);
         });
-    return result.get();
 }
 
 inline void multiplexer::start_receive()

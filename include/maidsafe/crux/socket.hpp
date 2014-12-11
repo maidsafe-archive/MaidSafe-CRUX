@@ -165,6 +165,8 @@ private:
 
     using connect_handler_type = std::function<void (const boost::system::error_code&)>;
     boost::optional<connect_handler_type> connect_handler;
+
+    sequence_number_type next_sequence;
 };
 
 } // namespace crux
@@ -182,14 +184,16 @@ namespace crux
 {
 
 inline socket::socket(boost::asio::io_service& io)
-    : boost::asio::basic_io_object<service_type>(io)
+    : boost::asio::basic_io_object<service_type>(io),
+      next_sequence(get_service().random())
 {
 }
 
 inline socket::socket(boost::asio::io_service& io,
                       const endpoint_type& local_endpoint)
     : boost::asio::basic_io_object<service_type>(io),
-      multiplexer(get_service().add(local_endpoint))
+      multiplexer(get_service().add(local_endpoint)),
+      next_sequence(get_service().random())
 {
 }
 
@@ -243,7 +247,7 @@ socket::async_connect(const endpoint_type& remote_endpoint,
             multiplexer->add(this);
             multiplexer->send_handshake
                 (remote_endpoint,
-                 detail::multiplexer::sequence_number_type(0), // FIXME
+                 detail::multiplexer::sequence_number_type(next_sequence++),
                  boost::none,
                  0,
                  [this, remote_endpoint, handler]
@@ -477,9 +481,12 @@ socket::async_send(ConstBufferSequence&& buffers,
     }
     else
     {
-        multiplexer->async_send_to
+        multiplexer->send_data
             (std::forward<ConstBufferSequence>(buffers),
              remote,
+             next_sequence++,
+             boost::none,
+             0, // FIMXE
              [handler] (const boost::system::error_code& error,
                         std::size_t bytes_transferred) mutable
              {
@@ -536,7 +543,7 @@ void socket::process_handshake(sequence_number_type initial,
         assert(multiplexer);
         multiplexer->send_handshake
             (remote_endpoint,
-             sequence_number_type(0), // FIXME: Randomize
+             sequence_number_type(next_sequence++),
              initial,
              0, // FIXME
              [this, remote_endpoint]
@@ -558,7 +565,7 @@ void socket::process_handshake(sequence_number_type initial,
         state(connectivity::handshaking);
         multiplexer->send_keepalive
             (remote_endpoint,
-             sequence_number_type(0), // FIXME
+             sequence_number_type(next_sequence++),
              initial,
              0, // FIXME
              [this, remote_endpoint]
