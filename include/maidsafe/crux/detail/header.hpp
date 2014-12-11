@@ -33,10 +33,13 @@ const std::size_t size =
     + sizeof(std::uint32_t) // sequence number
     + sizeof(std::uint32_t); // ack sequence number
 
-const std::uint16_t type_mask = 0XF800;
+const std::uint16_t mask_type = 0XF800;
+const std::uint16_t mask_ack = 0x0004;
+
 const std::uint16_t type_data = 0xC000;
 const std::uint16_t type_handshake = 0xC800;
 const std::uint16_t type_shutdown = 0xD000;
+const std::uint16_t type_keepalive = 0xD800;
 
 } // namespace header
 } // namespace constant
