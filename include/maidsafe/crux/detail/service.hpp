@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <map>
+#include <random>
 #include <boost/asio/io_service.hpp>
 #include <maidsafe/crux/endpoint.hpp>
 
@@ -38,6 +39,8 @@ public:
     std::shared_ptr<detail::multiplexer> add(endpoint_type local_endpoint);
     void remove(const endpoint_type& local_endpoint);
 
+    std::uint32_t random();
+
     // Required by boost::asio::basic_io_object
     struct implementation_type {};
     void construct(implementation_type& impl) {}
@@ -51,12 +54,16 @@ private:
 
 private:
     multiplexer_map multiplexers;
+
+    std::mt19937 generator;
+    std::uniform_int_distribution<std::uint32_t> distribution;
 };
 
 } // namespace detail
 } // namespace crux
 } // namespace maidsafe
 
+#include <limits>
 #include <maidsafe/crux/detail/multiplexer.hpp>
 
 namespace maidsafe
@@ -67,8 +74,12 @@ namespace detail
 {
 
 inline service::service(boost::asio::io_service& io)
-    : boost::asio::io_service::service(io)
+    : boost::asio::io_service::service(io),
+      distribution(std::numeric_limits<std::uint32_t>::min(),
+                   std::numeric_limits<std::uint32_t>::max())
 {
+    std::random_device device;
+    generator.seed(device());
 }
 
 inline std::shared_ptr<detail::multiplexer> service::add(endpoint_type local_endpoint)
@@ -125,6 +136,11 @@ inline void service::remove(const endpoint_type& local_endpoint)
             multiplexers.erase(where);
         }
     }
+}
+
+inline std::uint32_t service::random()
+{
+    return distribution(generator);
 }
 
 } // namespace detail
