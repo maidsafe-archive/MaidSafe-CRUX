@@ -23,7 +23,9 @@ class sequence_number {
                  , "NumericType must be an unsigned integral type");
 
 public:
-    static constexpr NumericType max_value = Max;
+    using value_type = NumericType;
+    using difference_type = std::ptrdiff_t;
+    static constexpr value_type max_value = Max;
 
 public:
     sequence_number();
@@ -35,10 +37,12 @@ public:
     bool operator<(sequence_number) const;
     bool operator==(sequence_number) const;
 
-    NumericType value() const { return n; }
+    difference_type distance(const sequence_number&);
+
+    value_type value() const { return n; }
 
 private:
-    NumericType n;
+    value_type n;
 };
 
 }}} // namespace maidsafe::crux::detail
@@ -60,7 +64,7 @@ sequence_number<NumericType, Max>::sequence_number(NumericType n)
 template<typename NumericType, NumericType Max>
 sequence_number<NumericType, Max>&
 sequence_number<NumericType, Max>::operator++() {
-    if (n < Max) { ++n; } else { n = 0; }
+    if (n < max_value) { ++n; } else { n = 0; }
     return *this;
 }
 
@@ -68,21 +72,31 @@ template<typename NumericType, NumericType Max>
 sequence_number<NumericType, Max>
 sequence_number<NumericType, Max>::operator++(int) {
     NumericType old_n = n;
-    if (n < Max) { ++n; } else { n = 0; }
+    if (n < max_value) { ++n; } else { n = 0; }
     return sequence_number(old_n);
 }
 
 template<typename NumericType, NumericType Max>
 bool sequence_number<NumericType, Max>::operator<(sequence_number other) const
 {
-    return ((other.n > n) && (other.n - n <= Max/2))
-        || ((other.n < n) && (n - other.n >  Max/2));
+    return ((other.n > n) && (other.n - n <= max_value/2))
+        || ((other.n < n) && (n - other.n >  max_value/2));
 }
 
 template<typename NumericType, NumericType Max>
 bool sequence_number<NumericType, Max>::operator==(sequence_number other) const
 {
     return n == other.n;
+}
+
+template<typename NumericType, NumericType Max>
+typename sequence_number<NumericType, Max>::difference_type
+sequence_number<NumericType, Max>::distance(const sequence_number& other)
+{
+    if ((*this < other) && (n <= other.n))
+        return other.n - n;
+    else
+        return other.n + (max_value - n) + 1;
 }
 
 }}} // namespace maidsafe::crux::detail
