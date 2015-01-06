@@ -62,8 +62,7 @@ public:
         typename boost::asio::handler_type<CompletionToken,
                                            void(boost::system::error_code)>::type
         >::type
-    async_connect(const endpoint_type& remote_endpoint,
-                  CompletionToken&& token);
+    async_connect(endpoint_type remote_endpoint, CompletionToken&& token);
 
     template <typename CompletionToken>
     typename boost::asio::async_result<
@@ -241,8 +240,7 @@ typename boost::asio::async_result<
     typename boost::asio::handler_type<CompletionToken,
                                        void(boost::system::error_code)>::type
     >::type
-socket::async_connect(const endpoint_type& remote_endpoint,
-                      CompletionToken&& token)
+socket::async_connect(endpoint_type remote_endpoint, CompletionToken&& token)
 {
     using handler_type = typename boost::asio::handler_type<CompletionToken,
                                                             void(boost::system::error_code)>::type;
@@ -261,6 +259,17 @@ socket::async_connect(const endpoint_type& remote_endpoint,
         {
         case connectivity::closed:
             state(connectivity::connecting);
+
+            if (remote_endpoint.address().is_unspecified()) {
+                if (remote_endpoint.address().is_v4()) {
+                    remote_endpoint.address(boost::asio::ip::address_v4::loopback());
+                }
+                else {
+                    assert(remote_endpoint.address().is_v6());
+                    remote_endpoint.address(boost::asio::ip::address_v6::loopback());
+                }
+            }
+
             remote = remote_endpoint;
             multiplexer->add(this);
             send_handshake
