@@ -106,8 +106,7 @@ BOOST_AUTO_TEST_CASE(double_send_and_receive)
                   BOOST_ASSERT(!error);
                   BOOST_ASSERT(size == message1_text.size());
                   BOOST_REQUIRE_EQUAL
-                      ( std::string(rx_data.begin(), rx_data.end())
-                      , message1_text);
+                      (to_string(rx_data), message1_text);
 
                   rx_data.assign(blank_message.begin(), blank_message.end());
 
@@ -117,8 +116,7 @@ BOOST_AUTO_TEST_CASE(double_send_and_receive)
                           BOOST_ASSERT(!error);
                           BOOST_REQUIRE_EQUAL(size, rx_data.size());
                           BOOST_REQUIRE_EQUAL
-                            ( std::string(rx_data.begin(), rx_data.end())
-                            , message2_text);
+                            (to_string(rx_data), message2_text);
                       });
                 });
             });
@@ -176,8 +174,7 @@ BOOST_AUTO_TEST_CASE(single_exchange)
                   BOOST_ASSERT(!error);
                   BOOST_ASSERT(size == message1_text.size());
                   BOOST_REQUIRE_EQUAL
-                      ( std::string(server_rx_data.begin(), server_rx_data.end())
-                      , message1_text);
+                      (to_string(server_rx_data), message1_text);
 
                   server_socket.async_send(
                       asio::buffer(server_tx_data),
@@ -207,9 +204,7 @@ BOOST_AUTO_TEST_CASE(single_exchange)
                             BOOST_REQUIRE_EQUAL(size, message2_text.size());
 
                             BOOST_REQUIRE_EQUAL
-                                ( std::string( server_rx_data.begin()
-                                             , server_rx_data.end())
-                                , message2_text);
+                                (to_string(client_rx_data), message2_text);
                       });
                });
            });
