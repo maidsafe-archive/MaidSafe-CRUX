@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <tuple>
+#include <deque>
 
 #include <boost/optional.hpp>
 #include <boost/asio/basic_io_object.hpp>
@@ -22,6 +23,7 @@
 
 #include <maidsafe/crux/detail/socket_base.hpp>
 #include <maidsafe/crux/detail/service.hpp>
+#include <maidsafe/crux/detail/cumulative_set.hpp>
 #include <maidsafe/crux/endpoint.hpp>
 #include <maidsafe/crux/resolver.hpp>
 
@@ -111,17 +113,30 @@ private:
         return &receive_input_queue.front()->buffers;
     }
 
-    virtual void process_handshake(sequence_number_type initial,
+    virtual void process_handshake(sequence_type initial,
                                    endpoint_type remote_endpoint) override;
-    virtual void process_acknowledgement(sequence_number_type ack,
-                                         std::uint16_t ackfield) override;
+    virtual void process_acknowledgement(const ack_sequence_type& ack) override;
     virtual void process_data(const boost::system::error_code& error,
                               std::size_t payload_size,
-                              std::shared_ptr<detail::buffer> payload) override;
+                              std::shared_ptr<detail::buffer> payload,
+                              sequence_type) override;
 
     void process_receive( const boost::system::error_code& error
                         , std::size_t                      bytes_received
                         , read_handler_type&&              handler);
+
+    template <typename Handler>
+    void send_handshake(endpoint_type remote_endpoint,
+                        Handler&& handler);
+
+    template <typename Handler>
+    void send_keepalive(endpoint_type remote_endpoint,
+                        Handler&& handler);
+
+    template <typename ConstBufferSequence, typename Handler>
+    void send_data(endpoint_type remote_endpoint,
+                   ConstBufferSequence&&,
+                   Handler&& handler);
 
 private:
     template <typename Handler,
@@ -166,7 +181,10 @@ private:
     using connect_handler_type = std::function<void (const boost::system::error_code&)>;
     boost::optional<connect_handler_type> connect_handler;
 
-    sequence_number_type next_sequence;
+    sequence_type next_sequence;
+
+    using sequence_history_type = detail::cumulative_set<sequence_type, ack_field_type>;
+    sequence_history_type sequence_history;
 };
 
 } // namespace crux
@@ -245,11 +263,8 @@ socket::async_connect(const endpoint_type& remote_endpoint,
             state(connectivity::connecting);
             remote = remote_endpoint;
             multiplexer->add(this);
-            multiplexer->send_handshake
+            send_handshake
                 (remote_endpoint,
-                 detail::multiplexer::sequence_number_type(next_sequence++),
-                 boost::none,
-                 0,
                  [this, remote_endpoint, handler]
                  (boost::system::error_code error) mutable
                  {
@@ -481,12 +496,9 @@ socket::async_send(ConstBufferSequence&& buffers,
     }
     else
     {
-        multiplexer->send_data
-            (std::forward<ConstBufferSequence>(buffers),
-             remote,
-             next_sequence++,
-             boost::none,
-             0, // FIMXE
+        send_data
+            (remote,
+             std::forward<ConstBufferSequence>(buffers),
              [handler] (const boost::system::error_code& error,
                         std::size_t bytes_transferred) mutable
              {
@@ -508,8 +520,11 @@ void socket::process_receive( const boost::system::error_code& error
 inline
 void socket::process_data(const boost::system::error_code& error,
                           std::size_t payload_size,
-                          std::shared_ptr<detail::buffer> payload)
+                          std::shared_ptr<detail::buffer> payload,
+                          sequence_type sequence_number)
 {
+    sequence_history.insert(sequence_number);
+
     // FIXME: Thread-safe
     if (receive_input_queue.empty())
     {
@@ -533,19 +548,58 @@ void socket::process_data(const boost::system::error_code& error,
     }
 }
 
+template <typename Handler>
+void socket::send_handshake(endpoint_type remote_endpoint,
+                            Handler&& handler)
+{
+    assert(multiplexer);
+
+    multiplexer->send_handshake(remote_endpoint,
+                                next_sequence++,
+                                sequence_history.front(),
+                                0, // FIXME
+                                std::forward<decltype(handler)>(handler));
+}
+
+template <typename Handler>
+void socket::send_keepalive(endpoint_type remote_endpoint,
+                            Handler&& handler)
+{
+    assert(multiplexer);
+
+    multiplexer->send_keepalive(remote_endpoint,
+                                next_sequence++,
+                                sequence_history.front(),
+                                0, // FIXME
+                                std::forward<decltype(handler)>(handler));
+}
+
+template <typename ConstBufferSequence, typename Handler>
+void socket::send_data(endpoint_type remote_endpoint,
+                       ConstBufferSequence&& buffers,
+                       Handler&& handler)
+{
+    assert(multiplexer);
+
+    multiplexer->send_data(std::forward<decltype(buffers)>(buffers),
+                           remote_endpoint,
+                           next_sequence++,
+                           sequence_history.front(),
+                           0, // FIMXE
+                           std::forward<decltype(handler)>(handler));
+}
+
 inline
-void socket::process_handshake(sequence_number_type initial,
+void socket::process_handshake(sequence_type initial,
                                endpoint_type remote_endpoint)
 {
+    sequence_history.insert(initial);
+
     switch (state())
     {
     case connectivity::listening:
-        assert(multiplexer);
-        multiplexer->send_handshake
+        send_handshake
             (remote_endpoint,
-             sequence_number_type(next_sequence++),
-             initial,
-             0, // FIXME
              [this, remote_endpoint]
              (boost::system::error_code error) mutable
              {
@@ -563,11 +617,8 @@ void socket::process_handshake(sequence_number_type initial,
 
     case connectivity::connecting:
         state(connectivity::handshaking);
-        multiplexer->send_keepalive
+        send_keepalive
             (remote_endpoint,
-             sequence_number_type(next_sequence++),
-             initial,
-             0, // FIXME
              [this, remote_endpoint]
              (boost::system::error_code error) mutable
              {
@@ -587,8 +638,7 @@ void socket::process_handshake(sequence_number_type initial,
 }
 
 inline
-void socket::process_acknowledgement(sequence_number_type ack,
-                                     std::uint16_t ackfield)
+void socket::process_acknowledgement(const ack_sequence_type& ack)
 {
     switch (state())
     {
