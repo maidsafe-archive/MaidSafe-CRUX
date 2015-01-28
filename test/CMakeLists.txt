@@ -18,6 +18,7 @@ include_directories(".")
 
 add_executable(crux_test
   runner.cpp
+  periodic_timer.cpp
   sequence_number.cpp
   concatenate.cpp
   socket.cpp
