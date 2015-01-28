@@ -256,7 +256,7 @@ socket::async_connect(endpoint_type remote_endpoint, CompletionToken&& token)
             multiplexer->add(this);
             multiplexer->send_handshake
                 (remote_endpoint,
-                 detail::multiplexer::sequence_number_type(next_sequence++),
+                 next_sequence++,
                  boost::none,
                  0,
                  [this, remote_endpoint, handler]
@@ -574,7 +574,7 @@ void socket::process_handshake(sequence_number_type initial,
         state(connectivity::handshaking);
         multiplexer->send_keepalive
             (remote_endpoint,
-             sequence_number_type(next_sequence++),
+             next_sequence++,
              initial,
              0, // FIXME
              [this, remote_endpoint]
