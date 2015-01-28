@@ -23,9 +23,40 @@ static std::string to_string(const std::vector<char>& v) {
 
 BOOST_AUTO_TEST_SUITE(socket_suite)
 
-// FIXME: Add test for connect/accept only (no data exchange).
-// This is currently not possible since we don't have the
-// handshake in place yet.
+BOOST_AUTO_TEST_CASE(accept_connect)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    const std::string message_text = "TEST_MESSAGE";
+    std::vector<char>  rx_data(message_text.size());
+    std::vector<char>  tx_data(message_text.begin(), message_text.end());
+
+    bool tested_client = false;
+    bool tested_server = false;
+
+    acceptor.async_accept(server_socket, [&](error_code error) {
+                                           BOOST_ASSERT(!error);
+                                           tested_server = true;
+                                         });
+
+    client_socket.async_connect(acceptor.local_endpoint(),
+                                [&](error_code error) {
+                                  BOOST_ASSERT(!error);
+                                  tested_client = true;
+                                });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_client && tested_server);
+}
 
 BOOST_AUTO_TEST_CASE(single_send_and_receive)
 {
