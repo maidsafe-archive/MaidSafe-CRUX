@@ -65,6 +65,7 @@ protected:
                                          std::uint16_t ackfield) = 0;
 
     virtual void process_data(const boost::system::error_code&,
+                              const sequence_number_type&,
                               std::size_t bytes_transferred,
                               std::shared_ptr<detail::buffer>) = 0;
 

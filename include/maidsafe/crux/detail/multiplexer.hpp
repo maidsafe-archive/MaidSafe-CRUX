@@ -533,8 +533,8 @@ void multiplexer::process_data(socket_base& socket,
     assert((type & constant::header::mask_type) == constant::header::type_data);
 
     auto ackfield = decoder.get<std::uint16_t>();
-    sequence_number_type initial_sequence_number(decoder.get<std::uint32_t>());
-    socket.process_data(error, payload_size, payload);
+    sequence_number_type sequence_number(decoder.get<std::uint32_t>());
+    socket.process_data(error, sequence_number, payload_size, payload);
 
     if (type & constant::header::mask_ack)
     {
