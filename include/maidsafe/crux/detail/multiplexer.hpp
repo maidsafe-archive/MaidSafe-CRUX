@@ -226,7 +226,7 @@ void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
                                | (ack ? constant::header::ack_type_cumulative : constant::header::ack_type_none));
     encoder.put<std::uint16_t>(constant::header::version);
     encoder.put<std::uint32_t>(initial.value());
-    encoder.put<std::uint32_t>(ack ? ack->first.value() : 0);
+    encoder.put<std::uint32_t>(ack ? ack->value() : 0);
     next_layer().async_send_to
         (boost::asio::buffer(*header),
          remote_endpoint,
@@ -249,9 +249,9 @@ void multiplexer::send_keepalive(const endpoint_type& remote_endpoint,
     encoder.put<std::uint16_t>(constant::header::type_keepalive
                                | std::min<std::size_t>(3, retransmission_count)
                                | (ack ? constant::header::ack_type_cumulative : constant::header::ack_type_none));
-    encoder.put<std::uint16_t>(ack ? ack->second : 0);
+    encoder.put<std::uint16_t>(0);
     encoder.put<std::uint32_t>(sequence.value());
-    encoder.put<std::uint32_t>(ack ? ack->first.value() : 0);
+    encoder.put<std::uint32_t>(ack ? ack->value() : 0);
     next_layer().async_send_to
         (boost::asio::buffer(*header),
          remote_endpoint,
@@ -278,9 +278,9 @@ void multiplexer::send_data(ConstBufferSequence&& buffers,
     encoder.put<std::uint16_t>(constant::header::type_data
                                | std::min<std::size_t>(3, retransmission_count)
                                | (ack ? constant::header::ack_type_cumulative : constant::header::ack_type_none));
-    encoder.put<std::uint16_t>(ack ? ack->second : 0);
+    encoder.put<std::uint16_t>(0);
     encoder.put<std::uint32_t>(sequence.value());
-    encoder.put<std::uint32_t>(ack ? ack->first.value() : 0);
+    encoder.put<std::uint32_t>(ack ? ack->value() : 0);
     next_layer().async_send_to
         (concatenate(boost::asio::buffer(*header),
                      std::forward<ConstBufferSequence>(buffers)),
@@ -502,7 +502,7 @@ void multiplexer::process_handshake(socket_base& socket,
 
     if (type & constant::header::mask_ack)
     {
-        auto ack = std::make_pair(sequence_type(decoder.get<std::uint32_t>()), 0);
+        sequence_type ack(decoder.get<std::uint32_t>());
         socket.process_acknowledgement(ack);
     }
 }
@@ -514,11 +514,11 @@ void multiplexer::process_keepalive(socket_base& socket,
 {
     assert((type & constant::header::mask_type) == constant::header::type_keepalive);
 
-    auto ackfield = decoder.get<std::uint16_t>();
+    auto dummy = decoder.get<std::uint16_t>();
     sequence_type sequence_number(decoder.get<std::uint32_t>());
     if (type & constant::header::mask_ack)
     {
-        auto ack = std::make_pair(sequence_type(decoder.get<std::uint32_t>()), ackfield);
+        sequence_type ack(decoder.get<std::uint32_t>());
         socket.process_acknowledgement(ack);
     }
 }
@@ -533,13 +533,13 @@ void multiplexer::process_data(socket_base& socket,
 {
     assert((type & constant::header::mask_type) == constant::header::type_data);
 
-    auto ackfield = decoder.get<std::uint16_t>();
+    auto dummy = decoder.get<std::uint16_t>();
     sequence_type sequence_number(decoder.get<std::uint32_t>());
     socket.process_data(error, payload_size, payload, sequence_number);
 
     if (type & constant::header::mask_ack)
     {
-        auto ack = std::make_pair(sequence_type(decoder.get<std::uint32_t>()), ackfield);
+        sequence_type ack(decoder.get<std::uint32_t>());
         socket.process_acknowledgement(ack);
     }
 }

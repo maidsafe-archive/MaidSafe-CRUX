@@ -44,7 +44,7 @@ protected:
 
     using sequence_type = detail::sequence_number<std::uint32_t>;
     using ack_field_type = std::uint16_t;
-    using ack_sequence_type = std::pair<sequence_type, ack_field_type>;
+    using ack_sequence_type = sequence_type;
 
     enum struct connectivity
     {

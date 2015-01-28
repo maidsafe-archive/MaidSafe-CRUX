@@ -35,7 +35,7 @@ class cumulative_set
 public:
     using value_type = typename container_type::value_type;
     using field_type = FieldType;
-    using composite_type = std::pair<value_type, field_type>;
+    using composite_type = value_type;
 
     bool empty() const;
 
@@ -45,7 +45,6 @@ public:
 
 private:
     void prune();
-    field_type calculate_nack_field(typename container_type::iterator);
 
 private:
     container_type container;
@@ -78,7 +77,7 @@ cumulative_set<SequenceType, FieldType>::front()
         return boost::none;
 
     auto cumulative = container.begin();
-    return std::make_pair(*cumulative, calculate_nack_field(cumulative));
+    return *cumulative;
 }
 
 template <typename SequenceType, typename FieldType>
@@ -110,31 +109,6 @@ void cumulative_set<SequenceType, FieldType>::prune()
         // Prune all entries before the cumulative value
         container.erase(container.begin(), current);
     }
-}
-
-template <typename SequenceType, typename FieldType>
-typename cumulative_set<SequenceType, FieldType>::field_type
-cumulative_set<SequenceType, FieldType>::calculate_nack_field(typename container_type::iterator origin)
-{
-    // Calculate negative acknowledgements from cumulative entry
-    field_type result = 0;
-    const int field_size = sizeof(field_type) * 8;
-    auto where = origin;
-    ++where;
-    auto offset = 0;
-    auto delta = 0;
-    while (where != container.end())
-    {
-        auto diff = origin->distance(*where);
-        // Negate from offset to diff (unless larger than field_size)
-        auto delta = (diff > field_size)
-            ? field_size - offset
-            : diff - offset - 1;
-        result |= ((1 << delta) - 1) << offset;
-        offset = diff;
-        ++where;
-    }
-    return result;
 }
 
 } // namespace detail

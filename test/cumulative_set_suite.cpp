@@ -52,8 +52,7 @@ BOOST_AUTO_TEST_CASE(pop_one)
     history.insert(one);
     BOOST_REQUIRE_EQUAL(history.empty(), false);
     auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, one);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0));
+    BOOST_REQUIRE_EQUAL(front, one);
 }
 
 BOOST_AUTO_TEST_CASE(pop_two)
@@ -65,8 +64,7 @@ BOOST_AUTO_TEST_CASE(pop_two)
     history.insert(one);
     history.insert(two);
     auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, two);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0));
+    BOOST_REQUIRE_EQUAL(front, two);
     BOOST_REQUIRE_EQUAL(history.empty(), false); // Value 'two' remains
 }
 
@@ -82,95 +80,10 @@ BOOST_AUTO_TEST_CASE(out_of_sequence)
     history.insert(two);
     history.insert(four);
     auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, two);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0x0001));
+    BOOST_REQUIRE_EQUAL(front, two);
     history.insert(three);
     auto front2 = history.front();
-    BOOST_REQUIRE_EQUAL(front2->first, four);
-    BOOST_REQUIRE_EQUAL(front2->second, std::uint16_t(0));
-}
-
-BOOST_AUTO_TEST_CASE(nack_nothing)
-{
-    cumulative_set history;
-    history.insert(sequence_number(1));
-    history.insert(sequence_number(2));
-    auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, 2);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0x0000));
-}
-
-BOOST_AUTO_TEST_CASE(nack_one)
-{
-    cumulative_set history;
-    history.insert(sequence_number(1));
-    history.insert(sequence_number(3));
-    auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, 1);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0x0001));
-}
-
-BOOST_AUTO_TEST_CASE(nack_two)
-{
-    cumulative_set history;
-    history.insert(sequence_number(1));
-    history.insert(sequence_number(4));
-    auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, 1);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0x0003));
-}
-
-BOOST_AUTO_TEST_CASE(nack_three)
-{
-    cumulative_set history;
-    history.insert(sequence_number(1));
-    history.insert(sequence_number(5));
-    auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, 1);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0x0007));
-}
-
-BOOST_AUTO_TEST_CASE(nack_beyond)
-{
-    cumulative_set history;
-    history.insert(sequence_number(1));
-    history.insert(sequence_number(99));
-    auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, 1);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0xFFFF));
-}
-
-BOOST_AUTO_TEST_CASE(nack_every_second)
-{
-    cumulative_set history;
-    history.insert(sequence_number(1));
-    history.insert(sequence_number(3));
-    history.insert(sequence_number(5));
-    history.insert(sequence_number(7));
-    history.insert(sequence_number(9));
-    history.insert(sequence_number(11));
-    history.insert(sequence_number(13));
-    history.insert(sequence_number(15));
-    auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, 1);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0x1555));
-}
-
-BOOST_AUTO_TEST_CASE(nack_every_second_beyond)
-{
-    cumulative_set history;
-    history.insert(sequence_number(1));
-    history.insert(sequence_number(3));
-    history.insert(sequence_number(5));
-    history.insert(sequence_number(7));
-    history.insert(sequence_number(9));
-    history.insert(sequence_number(11));
-    history.insert(sequence_number(13));
-    history.insert(sequence_number(15));
-    history.insert(sequence_number(17));
-    auto front = history.front();
-    BOOST_REQUIRE_EQUAL(front->first, 1);
-    BOOST_REQUIRE_EQUAL(front->second, std::uint16_t(0x5555));
+    BOOST_REQUIRE_EQUAL(front2, four);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
