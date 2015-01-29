@@ -11,8 +11,10 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_SOCKET_BASE_HPP
 #define MAIDSAFE_CRUX_DETAIL_SOCKET_BASE_HPP
 
+#include <cstdint>
 #include <memory>
 #include <queue>
+#include <utility>
 
 #include <boost/asio/socket_base.hpp>
 #include <boost/asio/ip/udp.hpp>
@@ -40,7 +42,9 @@ public:
 protected:
     friend class multiplexer;
 
-    using sequence_number_type = detail::sequence_number<std::uint32_t>;
+    using sequence_type = detail::sequence_number<std::uint32_t>;
+    using ack_field_type = std::uint16_t;
+    using ack_sequence_type = sequence_type;
 
     enum struct connectivity
     {
@@ -58,15 +62,15 @@ protected:
 
     virtual std::vector<boost::asio::mutable_buffer>* get_recv_buffers() = 0;
 
-    virtual void process_handshake(sequence_number_type initial,
+    virtual void process_handshake(sequence_type initial,
                                    endpoint_type remote_endpoint) = 0;
 
-    virtual void process_acknowledgement(sequence_number_type ack) = 0;
+    virtual void process_acknowledgement(const ack_sequence_type& ack) = 0;
 
     virtual void process_data(const boost::system::error_code&,
-                              const sequence_number_type&,
                               std::size_t bytes_transferred,
-                              std::shared_ptr<detail::buffer>) = 0;
+                              std::shared_ptr<detail::buffer>,
+                              sequence_type) = 0;
 
 protected:
     endpoint_type remote;

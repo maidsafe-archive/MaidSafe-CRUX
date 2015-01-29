@@ -34,17 +34,21 @@ const std::size_t size =
     + sizeof(std::uint32_t); // ack sequence number
 
 const std::uint16_t mask_type = 0XF800;
-const std::uint16_t mask_ack = 0x0004;
+const std::uint16_t mask_retransmission = 0x0003;
+const std::uint16_t mask_ack = 0x000C;
 
 const std::uint16_t type_data = 0xC000;
 const std::uint16_t type_handshake = 0xC800;
 const std::uint16_t type_shutdown = 0xD000;
 const std::uint16_t type_keepalive = 0xD800;
 
+const std::uint16_t ack_type_none = 0x0000;
+const std::uint16_t ack_type_cumulative = 0x0004;
+
 } // namespace header
 } // namespace constant
 
-typedef std::array<std::uint8_t, constant::header::size> header_data_type;
+using header_data_type = std::array<std::uint8_t, constant::header::size>;
 
 } // namespace detail
 } // namespace crux

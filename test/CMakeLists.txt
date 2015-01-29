@@ -21,6 +21,8 @@ add_executable(crux_test
   periodic_timer.cpp
   sequence_number.cpp
   concatenate.cpp
+  cumulative_set_suite.cpp
+  sequence_number.cpp
   socket.cpp
 )
 add_definitions (-DBOOST_TEST_DYN_LINK)
