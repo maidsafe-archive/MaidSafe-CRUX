@@ -25,6 +25,7 @@ BOOST_AUTO_TEST_SUITE(socket_suite)
 
 BOOST_AUTO_TEST_CASE(accept_connect)
 {
+    std::cout << "test " << __LINE__ << "\n";
     using namespace maidsafe;
     using udp = asio::ip::udp;
 
@@ -45,12 +46,14 @@ BOOST_AUTO_TEST_CASE(accept_connect)
     acceptor.async_accept(server_socket, [&](error_code error) {
                                            BOOST_ASSERT(!error);
                                            tested_server = true;
+                                           std::cout << "ACCEPT\n";
                                          });
 
     client_socket.async_connect(acceptor.local_endpoint(),
                                 [&](error_code error) {
                                   BOOST_ASSERT(!error);
                                   tested_client = true;
+                                  std::cout << "CONNECT\n";
                                 });
 
     ios.run();
@@ -60,6 +63,7 @@ BOOST_AUTO_TEST_CASE(accept_connect)
 
 BOOST_AUTO_TEST_CASE(single_send_and_receive)
 {
+    std::cout << "test " << __LINE__ << "\n";
     using namespace maidsafe;
     using udp = asio::ip::udp;
 
@@ -79,10 +83,12 @@ BOOST_AUTO_TEST_CASE(single_send_and_receive)
 
     acceptor.async_accept(server_socket, [&](error_code error) {
             BOOST_ASSERT(!error);
+            std::cout << "ACCEPT\n";
 
             server_socket.async_receive(
                 asio::buffer(rx_data),
                 [&](const error_code& error, size_t size) {
+                  std::cout << "RECEIVE\n";
                   BOOST_ASSERT(!error);
                   BOOST_REQUIRE_EQUAL(size, tx_data.size());
                   BOOST_REQUIRE_EQUAL(to_string(rx_data), to_string(tx_data));
@@ -94,10 +100,12 @@ BOOST_AUTO_TEST_CASE(single_send_and_receive)
     client_socket.async_connect(
             acceptor.local_endpoint(),
             [&](error_code error) {
+              std::cout << "CONNECT\n";
               BOOST_ASSERT(!error);
 
               client_socket.async_send(asio::buffer(tx_data),
                   [&](error_code error, size_t size) {
+                    std::cout << "SEND\n";
                     BOOST_REQUIRE(!error);
                     BOOST_REQUIRE_EQUAL(size, tx_data.size());
 
@@ -112,6 +120,7 @@ BOOST_AUTO_TEST_CASE(single_send_and_receive)
 
 BOOST_AUTO_TEST_CASE(double_send_and_receive)
 {
+    std::cout << "test " << __LINE__ << "\n";
     using namespace maidsafe;
     using udp = asio::ip::udp;
 
@@ -179,6 +188,7 @@ BOOST_AUTO_TEST_CASE(double_send_and_receive)
 
 BOOST_AUTO_TEST_CASE(single_exchange)
 {
+    std::cout << "test " << __LINE__ << "\n";
     using namespace maidsafe;
     using udp = asio::ip::udp;
 

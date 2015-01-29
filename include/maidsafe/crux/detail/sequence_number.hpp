@@ -36,8 +36,11 @@ public:
 
     bool operator<(sequence_number) const;
     bool operator==(sequence_number) const;
+    bool operator!=(sequence_number) const;
 
     difference_type distance(const sequence_number&);
+
+    sequence_number next() const;
 
     value_type value() const { return n; }
 
@@ -70,6 +73,13 @@ sequence_number<NumericType, Max>::operator++() {
 
 template<typename NumericType, NumericType Max>
 sequence_number<NumericType, Max>
+sequence_number<NumericType, Max>::next() const {
+    sequence_number ret(n);
+    return ++ret;
+}
+
+template<typename NumericType, NumericType Max>
+sequence_number<NumericType, Max>
 sequence_number<NumericType, Max>::operator++(int) {
     NumericType old_n = n;
     if (n < max_value) { ++n; } else { n = 0; }
@@ -87,6 +97,12 @@ template<typename NumericType, NumericType Max>
 bool sequence_number<NumericType, Max>::operator==(sequence_number other) const
 {
     return n == other.n;
+}
+
+template<typename NumericType, NumericType Max>
+bool sequence_number<NumericType, Max>::operator!=(sequence_number other) const
+{
+    return n != other.n;
 }
 
 template<typename NumericType, NumericType Max>

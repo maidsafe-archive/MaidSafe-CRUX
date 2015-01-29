@@ -61,8 +61,7 @@ protected:
     virtual void process_handshake(sequence_number_type initial,
                                    endpoint_type remote_endpoint) = 0;
 
-    virtual void process_acknowledgement(sequence_number_type ack,
-                                         std::uint16_t ackfield) = 0;
+    virtual void process_acknowledgement(sequence_number_type ack) = 0;
 
     virtual void process_data(const boost::system::error_code&,
                               const sequence_number_type&,
