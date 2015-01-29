@@ -11,6 +11,8 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_SEQUENCE_NUMBER_HPP
 #define MAIDSAFE_CRUX_DETAIL_SEQUENCE_NUMBER_HPP
 
+#include <type_traits>
+
 namespace maidsafe { namespace crux { namespace detail {
 
 template< typename NumericType
@@ -29,15 +31,18 @@ public:
 
 public:
     sequence_number();
+    sequence_number(const sequence_number&);
     explicit sequence_number(NumericType);
 
+    sequence_number& operator=(const sequence_number&);
     sequence_number& operator++();    // pre-increment
     sequence_number  operator++(int); // post-increment
 
-    bool operator<(sequence_number) const;
-    bool operator==(sequence_number) const;
+    bool operator<(const sequence_number&) const;
+    bool operator==(const sequence_number&) const;
+    bool operator==(const NumericType&) const;
 
-    difference_type distance(const sequence_number&);
+    difference_type distance(const sequence_number&) const;
 
     value_type value() const { return n; }
 
@@ -51,7 +56,17 @@ namespace maidsafe { namespace crux { namespace detail {
 
 template<typename NumericType, NumericType Max>
 sequence_number<NumericType, Max>::sequence_number()
-    : n(0) {}
+    : n(0)
+{
+}
+
+template<typename NumericType, NumericType Max>
+sequence_number<NumericType, Max>::sequence_number(const sequence_number& other)
+    : n(other.n)
+{
+    if (n > max_value)
+        throw std::runtime_error("invalid value");
+}
 
 template<typename NumericType, NumericType Max>
 sequence_number<NumericType, Max>::sequence_number(NumericType n)
@@ -59,6 +74,17 @@ sequence_number<NumericType, Max>::sequence_number(NumericType n)
 {
     if (n > max_value)
         throw std::runtime_error("invalid value");
+}
+
+template<typename NumericType, NumericType Max>
+sequence_number<NumericType, Max>&
+sequence_number<NumericType, Max>::operator=(const sequence_number& other)
+{
+    if (this != &other)
+    {
+        n = other.n;
+    }
+    return *this;
 }
 
 template<typename NumericType, NumericType Max>
@@ -77,21 +103,27 @@ sequence_number<NumericType, Max>::operator++(int) {
 }
 
 template<typename NumericType, NumericType Max>
-bool sequence_number<NumericType, Max>::operator<(sequence_number other) const
+bool sequence_number<NumericType, Max>::operator<(const sequence_number& other) const
 {
     return ((other.n > n) && (other.n - n <= max_value/2))
         || ((other.n < n) && (n - other.n >  max_value/2));
 }
 
 template<typename NumericType, NumericType Max>
-bool sequence_number<NumericType, Max>::operator==(sequence_number other) const
+bool sequence_number<NumericType, Max>::operator==(const sequence_number& other) const
 {
     return n == other.n;
 }
 
 template<typename NumericType, NumericType Max>
+bool sequence_number<NumericType, Max>::operator==(const NumericType& other) const
+{
+    return n == other;
+}
+
+template<typename NumericType, NumericType Max>
 typename sequence_number<NumericType, Max>::difference_type
-sequence_number<NumericType, Max>::distance(const sequence_number& other)
+sequence_number<NumericType, Max>::distance(const sequence_number& other) const
 {
     if ((*this < other) && (n <= other.n))
         return other.n - n;
