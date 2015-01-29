@@ -41,7 +41,7 @@ class decoder;
 
 class multiplexer : public std::enable_shared_from_this<multiplexer>
 {
-    static const size_t header_size = std::tuple_size<header_data_type>::value;
+    static const size_t header_size = std::tuple_size<header::data_type>::value;
 
 public:
     using protocol_type = boost::asio::ip::udp;
@@ -219,14 +219,9 @@ void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
                                  std::size_t retransmission_count,
                                  ConnectHandler&& handler)
 {
-    auto header = std::make_shared<header_data_type>();
+    auto header = std::make_shared<header::data_type>();
     detail::encoder encoder(header->data(), header->size());
-    encoder.put<std::uint16_t>(constant::header::type_handshake
-                               | std::min<std::size_t>(3, retransmission_count)
-                               | (ack ? constant::header::ack_type_cumulative : constant::header::ack_type_none));
-    encoder.put<std::uint16_t>(constant::header::version);
-    encoder.put<std::uint32_t>(initial.value());
-    encoder.put<std::uint32_t>(ack ? ack->value() : 0);
+    header::handshake(retransmission_count, initial, ack).encode(encoder);
     next_layer().async_send_to
         (boost::asio::buffer(*header),
          remote_endpoint,
@@ -244,14 +239,10 @@ void multiplexer::send_keepalive(const endpoint_type& remote_endpoint,
                                  std::size_t retransmission_count,
                                  ConnectHandler&& handler)
 {
-    auto header = std::make_shared<header_data_type>();
+    auto header = std::make_shared<header::data_type>();
     detail::encoder encoder(header->data(), header->size());
-    encoder.put<std::uint16_t>(constant::header::type_keepalive
-                               | std::min<std::size_t>(3, retransmission_count)
-                               | (ack ? constant::header::ack_type_cumulative : constant::header::ack_type_none));
-    encoder.put<std::uint16_t>(0);
-    encoder.put<std::uint32_t>(sequence.value());
-    encoder.put<std::uint32_t>(ack ? ack->value() : 0);
+    header::keepalive(retransmission_count, sequence, ack).encode(encoder);
+
     next_layer().async_send_to
         (boost::asio::buffer(*header),
          remote_endpoint,
@@ -271,16 +262,10 @@ void multiplexer::send_data(ConstBufferSequence&& buffers,
                             std::size_t retransmission_count,
                             WriteHandler&& handler)
 {
-    // FIXME: Congestion control
-
-    auto header = std::make_shared<header_data_type>();
+    auto header = std::make_shared<header::data_type>();
     detail::encoder encoder(header->data(), header->size());
-    encoder.put<std::uint16_t>(constant::header::type_data
-                               | std::min<std::size_t>(3, retransmission_count)
-                               | (ack ? constant::header::ack_type_cumulative : constant::header::ack_type_none));
-    encoder.put<std::uint16_t>(0);
-    encoder.put<std::uint32_t>(sequence.value());
-    encoder.put<std::uint32_t>(ack ? ack->value() : 0);
+    header::data(retransmission_count, sequence, ack).encode(encoder);
+
     next_layer().async_send_to
         (concatenate(boost::asio::buffer(*header),
                      std::forward<ConstBufferSequence>(buffers)),
@@ -353,7 +338,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         return;
     }
 
-    header_data_type header_data;
+    header::data_type header_data;
     std::size_t payload_size = datagram_size - header_size;
 
     // FIXME: gather-read (header, body)
@@ -390,17 +375,17 @@ void multiplexer::process_peek(boost::system::error_code error,
 
         detail::decoder decoder(header_data.data(), header_data.data() + header_data.size());
         auto type = decoder.get<std::uint16_t>();
-        switch (type & constant::header::mask_type)
+        switch (type & header::constant::mask_type)
         {
-        case constant::header::type_handshake:
+        case header::constant::type_handshake:
             process_handshake(crux_socket, remote_endpoint, type, decoder);
             break;
 
-        case constant::header::type_keepalive:
+        case header::constant::type_keepalive:
             process_keepalive(crux_socket, type, decoder);
             break;
 
-        case constant::header::type_data:
+        case header::constant::type_data:
             process_data(crux_socket, type, decoder, error, payload_size, payload);
             break;
 
@@ -420,7 +405,7 @@ inline
 void multiplexer::establish_connection(std::size_t payload_size,
                                        endpoint_type remote_endpoint)
 {
-    detail::header_data_type header_data;
+    header::data_type header_data;
     auto payload = std::make_shared<buffer_type>(payload_size);
 
     boost::system::error_code error;
@@ -452,13 +437,13 @@ void multiplexer::establish_connection(std::size_t payload_size,
 
     detail::decoder decoder(header_data.data(), header_data.data() + header_data.size());
     auto type = decoder.get<std::uint16_t>();
-    switch (type & constant::header::mask_type)
+    switch (type & header::constant::mask_type)
     {
-    case constant::header::type_handshake:
+    case header::constant::type_handshake:
         process_handshake(*socket, remote_endpoint, type, decoder);
         break;
 
-    case constant::header::type_keepalive:
+    case header::constant::type_keepalive:
         // FIXME: Detect denial-of-service attacks
         process_keepalive(*socket, type, decoder);
         break;
@@ -489,16 +474,12 @@ void multiplexer::process_handshake(socket_base& socket,
                                     std::uint16_t type,
                                     detail::decoder& decoder)
 {
-    assert((type & constant::header::mask_type) == constant::header::type_handshake);
+    header::handshake msg(type, decoder);
+    socket.process_handshake(msg.initial_sequence_number, remote_endpoint);
 
-    auto version = decoder.get<std::uint16_t>();
-    sequence_type initial_sequence_number(decoder.get<std::uint32_t>());
-    socket.process_handshake(initial_sequence_number, remote_endpoint);
-
-    if (type & constant::header::mask_ack)
+    if (msg.ack)
     {
-        sequence_type ack(decoder.get<std::uint32_t>());
-        socket.process_acknowledgement(ack);
+        socket.process_acknowledgement(*msg.ack);
     }
 }
 
@@ -507,16 +488,12 @@ void multiplexer::process_keepalive(socket_base& socket,
                                     std::uint16_t type,
                                     detail::decoder& decoder)
 {
-    assert((type & constant::header::mask_type) == constant::header::type_keepalive);
+    header::keepalive msg(type, decoder);
+    socket.process_keepalive(msg.sequence_number);
 
-    auto dummy = decoder.get<std::uint16_t>();
-    sequence_type sequence_number(decoder.get<std::uint32_t>());
-    socket.process_keepalive(sequence_number);
-
-    if (type & constant::header::mask_ack)
+    if (msg.ack)
     {
-        sequence_type ack(decoder.get<std::uint32_t>());
-        socket.process_acknowledgement(ack);
+        socket.process_acknowledgement(*msg.ack);
     }
 }
 
@@ -528,16 +505,12 @@ void multiplexer::process_data(socket_base& socket,
                                std::size_t payload_size,
                                std::shared_ptr<buffer_type> payload)
 {
-    assert((type & constant::header::mask_type) == constant::header::type_data);
+    header::data msg(type, decoder);
+    socket.process_data(error, payload_size, payload, msg.sequence_number);
 
-    auto dummy = decoder.get<std::uint16_t>();
-    sequence_type sequence_number(decoder.get<std::uint32_t>());
-    socket.process_data(error, payload_size, payload, sequence_number);
-
-    if (type & constant::header::mask_ack)
+    if (msg.ack)
     {
-        sequence_type ack(decoder.get<std::uint32_t>());
-        socket.process_acknowledgement(ack);
+        socket.process_acknowledgement(*msg.ack);
     }
 }
 

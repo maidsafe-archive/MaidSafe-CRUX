@@ -11,8 +11,10 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_HEADER_HPP
 #define MAIDSAFE_CRUX_DETAIL_HEADER_HPP
 
-#include <cstdint>
-#include <array>
+#include <maidsafe/crux/detail/decoder.hpp>
+#include <maidsafe/crux/detail/encoder.hpp>
+#include <maidsafe/crux/detail/header_constants.hpp>
+#include <maidsafe/crux/detail/sequence_number.hpp>
 
 namespace maidsafe
 {
@@ -20,36 +22,127 @@ namespace crux
 {
 namespace detail
 {
-namespace constant
-{
 namespace header
 {
 
-const std::size_t version = 0;
+using sequence_type = sequence_number<std::uint32_t>;
 
-const std::size_t size =
-    sizeof(std::uint16_t) // type
-    + sizeof(std::uint16_t) // ack-field
-    + sizeof(std::uint32_t) // sequence number
-    + sizeof(std::uint32_t); // ack sequence number
+struct handshake {
+    std::size_t                    retransmission_count;
+    std::uint16_t                  version;
+    sequence_type                  initial_sequence_number;
+    boost::optional<sequence_type> ack;
 
-const std::uint16_t mask_type = 0XF800;
-const std::uint16_t mask_retransmission = 0x0003;
-const std::uint16_t mask_ack = 0x000C;
+    handshake( std::size_t                    retransmission_count
+             , sequence_type                  initial_sequence_number
+             , boost::optional<sequence_type> ack)
+        : retransmission_count(retransmission_count)
+        , version(header::constant::version)
+        , initial_sequence_number(initial_sequence_number)
+        , ack(ack)
+    {}
 
-const std::uint16_t type_data = 0xC000;
-const std::uint16_t type_handshake = 0xC800;
-const std::uint16_t type_shutdown = 0xD000;
-const std::uint16_t type_keepalive = 0xD800;
+    handshake(std::uint16_t type, detail::decoder& decoder)
+        : retransmission_count(type & 3)
+        , version(decoder.get<std::uint16_t>())
+        , initial_sequence_number(decoder.get<std::uint32_t>())
+    {
+        assert((type & header::constant::mask_type) == header::constant::type_handshake);
 
-const std::uint16_t ack_type_none = 0x0000;
-const std::uint16_t ack_type_cumulative = 0x0004;
+        if (type & header::constant::mask_ack) {
+            ack = sequence_type(decoder.get<std::uint32_t>());
+        }
+    }
+
+    void encode(detail::encoder& encoder) const {
+        encoder.put<std::uint16_t>(header::constant::type_handshake
+                                   | std::min<std::size_t>(3, retransmission_count)
+                                   | (ack ? header::constant::ack_type_cumulative
+                                          : header::constant::ack_type_none));
+        encoder.put<std::uint16_t>(version);
+        encoder.put<std::uint32_t>(initial_sequence_number.value());
+        encoder.put<std::uint32_t>(ack ? ack->value() : 0);
+    }
+};
+
+struct keepalive {
+    std::size_t                    retransmission_count;
+    std::uint16_t                  dummy;
+    sequence_type                  sequence_number;
+    boost::optional<sequence_type> ack;
+
+    keepalive( std::size_t                    retransmission_count
+             , sequence_type                  sequence_number
+             , boost::optional<sequence_type> ack)
+        : retransmission_count(retransmission_count)
+        , dummy(0)
+        , sequence_number(sequence_number)
+        , ack(ack)
+    {}
+
+    keepalive(std::uint16_t type, detail::decoder& decoder)
+        : retransmission_count(3 & type)
+        , dummy(decoder.get<std::uint16_t>())
+        , sequence_number(decoder.get<std::uint32_t>())
+    {
+        assert((type & header::constant::mask_type) == header::constant::type_keepalive);
+
+        if (type & header::constant::mask_ack) {
+            ack = sequence_type(decoder.get<std::uint32_t>());
+        }
+    }
+
+    void encode(detail::encoder& encoder) const {
+        encoder.put<std::uint16_t>(header::constant::type_keepalive
+                                   | std::min<std::size_t>(3, retransmission_count)
+                                   | (ack ? header::constant::ack_type_cumulative
+                                          : header::constant::ack_type_none));
+        encoder.put<std::uint16_t>(0);
+        encoder.put<std::uint32_t>(sequence_number.value());
+        encoder.put<std::uint32_t>(ack ? ack->value() : 0);
+    }
+};
+
+struct data {
+    std::uint16_t                  retransmission_count;
+    std::uint16_t                  dummy;
+    sequence_type                  sequence_number;
+    boost::optional<sequence_type> ack;
+
+    data( std::uint16_t                  retransmission_count
+        , sequence_type                  sequence_number
+        , boost::optional<sequence_type> ack)
+            : retransmission_count(retransmission_count)
+            , dummy(0)
+            , sequence_number(sequence_number)
+            , ack(ack)
+    { }
+
+    data(std::uint16_t type, detail::decoder& decoder)
+        : retransmission_count(type & 3)
+        , dummy(decoder.get<std::uint16_t>())
+        , sequence_number(decoder.get<std::uint32_t>())
+    {
+        assert((type & header::constant::mask_type) == header::constant::type_data);
+
+        if (type & header::constant::mask_ack)
+        {
+            ack = sequence_type(decoder.get<std::uint32_t>());
+        }
+    }
+
+    void encode(detail::encoder& encoder) const {
+        encoder.put<std::uint16_t>(header::constant::type_data
+                                   | std::min<std::size_t>(3, retransmission_count)
+                                   | (ack ? header::constant::ack_type_cumulative
+                                          : header::constant::ack_type_none));
+        encoder.put<std::uint16_t>(0);
+        encoder.put<std::uint32_t>(sequence_number.value());
+        encoder.put<std::uint32_t>(ack ? ack->value() : 0);
+    }
+};
 
 } // namespace header
-} // namespace constant
-
-using header_data_type = std::array<std::uint8_t, constant::header::size>;
-
 } // namespace detail
 } // namespace crux
 } // namespace maidsafe
