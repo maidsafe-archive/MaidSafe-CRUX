@@ -72,6 +72,8 @@ protected:
                               std::shared_ptr<detail::buffer>,
                               sequence_type) = 0;
 
+    virtual void process_keepalive(sequence_type) = 0;
+
 protected:
     endpoint_type remote;
     connectivity state_value;

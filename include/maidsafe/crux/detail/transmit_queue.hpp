@@ -43,7 +43,6 @@ public:
 
     void push( index_type
              , std::size_t buffer_size
-             , duration_type iteration_period
              , iteration_step
              , iteration_handler);
 
@@ -104,7 +103,6 @@ void transmit_queue<Index>::apply_ack(index_type index)
 template<typename Index>
 void transmit_queue<Index>::push( index_type        index
                                 , std::size_t       buffer_size
-                                , duration_type     period
                                 , iteration_step    step
                                 , iteration_handler handler)
 {
@@ -120,7 +118,7 @@ void transmit_queue<Index>::push( index_type        index
 
     auto& entry       = insert_result.first->second;
     entry.buffer_size = buffer_size;
-    entry.period      = period;
+    entry.period      = std::chrono::milliseconds(3000);
     entry.step        = std::move(step);
     entry.handler     = std::move(handler);
 

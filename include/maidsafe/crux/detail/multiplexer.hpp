@@ -197,7 +197,6 @@ void multiplexer::async_accept(SocketType& socket,
                                                                        std::move(handler)));
     acceptor_queue.emplace(std::move(operation));
 
-    std::cout << this << " receive_calls -> " << (receive_calls+1) << " " << __LINE__ << "\n";
     if (receive_calls++ == 0)
     {
         do_start_receive();
@@ -295,7 +294,6 @@ void multiplexer::send_data(ConstBufferSequence&& buffers,
 
 inline void multiplexer::start_receive()
 {
-    std::cout << this << " receive_calls -> " << (receive_calls+1) << " in start_receive\n";
     if (receive_calls++ == 0)
     {
         do_start_receive();
@@ -337,7 +335,6 @@ void multiplexer::process_peek(boost::system::error_code error,
         return;
 
     default:
-        std::cout << this << " receive_calls -> " << (receive_calls-1) << " process_peek begin\n";
         if (--receive_calls > 0)
         {
             do_start_receive();
@@ -413,7 +410,6 @@ void multiplexer::process_peek(boost::system::error_code error,
         }
     }
 
-    std::cout << this << " receive_calls -> " << (receive_calls-1) << " process_peek end\n";
     if (--receive_calls  > 0)
     {
         do_start_receive();
@@ -515,6 +511,8 @@ void multiplexer::process_keepalive(socket_base& socket,
 
     auto dummy = decoder.get<std::uint16_t>();
     sequence_type sequence_number(decoder.get<std::uint32_t>());
+    socket.process_keepalive(sequence_number);
+
     if (type & constant::header::mask_ack)
     {
         sequence_type ack(decoder.get<std::uint32_t>());

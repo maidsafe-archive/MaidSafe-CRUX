@@ -125,6 +125,8 @@ private:
                         , std::size_t                      bytes_received
                         , read_handler_type&&              handler);
 
+    void process_keepalive(sequence_type);
+
     template <typename Handler>
     void send_handshake(endpoint_type remote_endpoint,
                         boost::optional<sequence_type> ack,
@@ -302,7 +304,6 @@ socket::async_connect(endpoint_type remote_endpoint, CompletionToken&& token)
                  [this, remote_endpoint, handler]
                  (boost::system::error_code error) mutable
                  {
-                     std::cout << "calling process_connect from " << __LINE__ << "\n";
                      if (error) {
                         return handler(error);
                      }
@@ -437,7 +438,6 @@ void socket::process_next_connect(const boost::system::error_code& error,
     }
     else
     {
-        std::cout << "calling process_connect from " << __LINE__ << "\n";
         process_connect(*where, std::forward<decltype(handler)>(handler));
     }
 }
@@ -473,7 +473,6 @@ socket::async_receive(const MutableBufferSequence& buffers,
 
             receive_input_queue.emplace(std::move(operation));
 
-            std::cout << this << " calling start receive from async_receive\n";
             multiplexer->start_receive();
         }
         else
@@ -565,7 +564,6 @@ void socket::process_data(const boost::system::error_code& error,
         return;
     }
 
-    std::cout << "1!!!!!!!!!!!!!!!!!!!!!!!!! " << sequence_number.value() << "\n";
     sequence_history.insert(sequence_number);
 
     // FIXME: Thread-safe
@@ -597,6 +595,17 @@ void socket::process_data(const boost::system::error_code& error,
     }
 }
 
+inline
+void socket::process_keepalive(sequence_type sequence_number) {
+    if (!is_expected_packet(sequence_number)) {
+        return;
+    }
+
+    // We need to insert this seq # to the history as well for
+    // the cumulative history to cumulate.
+    sequence_history.insert(sequence_number);
+}
+
 template <typename Handler>
 void socket::send_handshake(endpoint_type remote_endpoint,
                             boost::optional<sequence_type> ack,
@@ -607,11 +616,6 @@ void socket::send_handshake(endpoint_type remote_endpoint,
     auto sequence = next_sequence++;
 
     auto send_step = [=](transmit_queue_type::iteration_handler handler) {
-        if (ack) {
-            std::cout << this << " sending_handshake " << sequence.value() << ":" << ack->value() << "\n";
-        } else {
-            std::cout << this << " sending_handshake " << sequence.value() << ":" << "nil\n";
-        }
         multiplexer->send_handshake
             (remote_endpoint,
              sequence,
@@ -624,11 +628,9 @@ void socket::send_handshake(endpoint_type remote_endpoint,
              });
     };
 
-    std::cout << this << " calling start receive from send_handshake\n";
     multiplexer->start_receive();
     transmit_queue.push( sequence.value()
                        , 0
-                       , std::chrono::milliseconds(1000) // FIXME
                        , send_step
                        , [handler]
                          (boost::system::error_code error, std::size_t) mutable {
@@ -644,12 +646,6 @@ void socket::send_keepalive(endpoint_type remote_endpoint,
     assert(multiplexer);
 
     auto sequence = next_sequence++;
-
-    if (ack) {
-        std::cout << this << " sending keepalive " << sequence.value() << ":" << ack->value() << "\n";
-    } else {
-        std::cout << this << " sending keepalive " << sequence.value() << ":" << "nil\n";
-    }
 
     multiplexer->send_keepalive(remote_endpoint,
                                 sequence,
@@ -668,12 +664,6 @@ void socket::send_data(endpoint_type remote_endpoint,
     auto sequence = next_sequence++;
 
     auto send_step = [=](transmit_queue_type::iteration_handler handler) {
-        auto ack = sequence_history.front();
-        if (ack) {
-            std::cout << this << " sending data " << sequence.value() << ":" << ack->value() << "\n";
-        } else {
-            std::cout << this << " sending data " << sequence.value() << ":nil\n";
-        }
         multiplexer->send_data
             (buffers, // FIXME: Can be moved? Not sure as this lambda shall be reused
              remote_endpoint,
@@ -688,11 +678,9 @@ void socket::send_data(endpoint_type remote_endpoint,
              });
     };
 
-    std::cout << this << " calling start receive from send_data\n";
     multiplexer->start_receive();
     transmit_queue.push( sequence.value()
                        , boost::asio::buffer_size(buffers)
-                       , std::chrono::milliseconds(1000) // FIXME
                        , send_step
                        , handler);
 }
