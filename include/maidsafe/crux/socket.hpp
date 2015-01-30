@@ -99,6 +99,8 @@ public:
     // Get the local endpoint of the socket
     endpoint_type local_endpoint() const;
 
+    void close();
+
 private:
     friend class detail::multiplexer;
     friend class acceptor;
@@ -177,14 +179,18 @@ private:
 
     bool is_expected_packet(sequence_type seq);
 
+    void on_any_message_received();
+    void idempotent_start_receive();
+
 private:
     std::shared_ptr<detail::multiplexer> multiplexer;
 
     std::queue<std::unique_ptr<detail::receive_input_type>> receive_input_queue;
     std::queue<std::unique_ptr<detail::receive_output_type>> receive_output_queue;
 
+
     using connect_handler_type = std::function<void (const boost::system::error_code&)>;
-    boost::optional<connect_handler_type> connect_handler;
+    connect_handler_type connect_handler;
 
     sequence_type next_sequence;
 
@@ -192,6 +198,8 @@ private:
 
     using sequence_history_type = detail::cumulative_set<sequence_type, ack_field_type>;
     sequence_history_type sequence_history;
+
+    bool is_receiving;
 };
 
 } // namespace crux
@@ -211,7 +219,8 @@ namespace crux
 inline socket::socket(boost::asio::io_service& io)
     : boost::asio::basic_io_object<service_type>(io),
       next_sequence(get_service().random()),
-      transmit_queue(io)
+      transmit_queue(io),
+      is_receiving(false)
 {
 }
 
@@ -220,7 +229,8 @@ inline socket::socket(boost::asio::io_service& io,
     : boost::asio::basic_io_object<service_type>(io),
       multiplexer(get_service().add(local_endpoint)),
       next_sequence(get_service().random()),
-      transmit_queue(io)
+      transmit_queue(io),
+      is_receiving(false)
 {
 }
 
@@ -231,6 +241,20 @@ inline socket::~socket()
         get_service().remove(local_endpoint());
         multiplexer->remove(this);
     }
+}
+
+inline void socket::close() {
+    //transmit_queue.shutdown();
+}
+
+inline void socket::idempotent_start_receive() {
+    if (is_receiving) { return; }
+    is_receiving = true;
+    multiplexer->start_receive();
+}
+
+inline void socket::on_any_message_received() {
+    is_receiving = false;
 }
 
 inline boost::asio::io_service& socket::get_io_service()
@@ -473,7 +497,7 @@ socket::async_receive(const MutableBufferSequence& buffers,
 
             receive_input_queue.emplace(std::move(operation));
 
-            multiplexer->start_receive();
+            idempotent_start_receive();
         }
         else
         {
@@ -560,7 +584,11 @@ void socket::process_data(const boost::system::error_code& error,
                           std::shared_ptr<detail::buffer> payload,
                           sequence_type sequence_number)
 {
+    on_any_message_received();
+
     if (!is_expected_packet(sequence_number)) {
+        // We were receiving, so we need to continue to do so.
+        idempotent_start_receive();
         return;
     }
 
@@ -593,11 +621,18 @@ void socket::process_data(const boost::system::error_code& error,
 
         process_receive(error, payload_size, std::move(input->handler));
     }
+
+    if (!receive_input_queue.empty() || !transmit_queue.empty()) {
+        idempotent_start_receive();
+    }
 }
 
 inline
 void socket::process_keepalive(sequence_type sequence_number) {
+    on_any_message_received();
+
     if (!is_expected_packet(sequence_number)) {
+        idempotent_start_receive();
         return;
     }
 
@@ -628,7 +663,8 @@ void socket::send_handshake(endpoint_type remote_endpoint,
              });
     };
 
-    multiplexer->start_receive();
+    idempotent_start_receive();
+
     transmit_queue.push( sequence.value()
                        , 0
                        , send_step
@@ -678,7 +714,8 @@ void socket::send_data(endpoint_type remote_endpoint,
              });
     };
 
-    multiplexer->start_receive();
+    idempotent_start_receive();
+
     transmit_queue.push( sequence.value()
                        , boost::asio::buffer_size(buffers)
                        , send_step
@@ -689,6 +726,8 @@ inline
 void socket::process_handshake(sequence_type initial,
                                endpoint_type remote_endpoint)
 {
+    on_any_message_received();
+
     sequence_history.insert(initial);
 
     switch (state())
@@ -711,8 +750,8 @@ void socket::process_handshake(sequence_type initial,
                      remote = remote_endpoint;
                      if (connect_handler)
                      {
-                         (*connect_handler)(error);
-                         connect_handler = boost::none;
+                         connect_handler(error);
+                         connect_handler = 0;
                      }
                  }
              });
@@ -729,7 +768,8 @@ void socket::process_handshake(sequence_type initial,
                  state(error ? connectivity::closed : connectivity::established);
                  if (connect_handler)
                  {
-                     (*connect_handler)(error);
+                     connect_handler(error);
+                     connect_handler = 0;
                  }
              });
         break;
@@ -778,6 +818,11 @@ void socket::process_acknowledgement(const ack_sequence_type& ack)
     }
 
     transmit_queue.apply_ack(ack.value());
+
+    if (!transmit_queue.empty()) {
+        idempotent_start_receive();
+    }
+
 }
 
 template <typename Handler,

@@ -48,6 +48,9 @@ public:
 
     void apply_ack(index_type);
 
+    bool empty() const;
+    std::size_t size() const;
+
 private:
     void on_timer_tick();
     void start_step(typename entries_type::iterator);
@@ -72,6 +75,16 @@ void transmit_queue<Index>::on_timer_tick()
     }
 
     start_step(entries.begin());
+}
+
+template<typename Index>
+bool transmit_queue<Index>::empty() const {
+    return entries.empty();
+}
+
+template<typename Index>
+std::size_t transmit_queue<Index>::size() const {
+    return entries.size();
 }
 
 template<typename Index>
