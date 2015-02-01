@@ -291,4 +291,50 @@ BOOST_AUTO_TEST_CASE(accept_receive_send___connect_send_receive)
     ios.run();
 }
 
+// FIXME: At time of writing this comment we don't yet support
+// 'close' packets, so the only way to detect disconnection is
+// through keepalive timeouts. When 'close' packets are added
+// this test should be renamed.
+BOOST_AUTO_TEST_CASE(keepalive_timeout)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    bool tested_client = false;
+    bool tested_server = false;
+
+    acceptor.async_accept
+        ( server_socket
+        , [&](error_code error) {
+              BOOST_ASSERT(!error);
+
+              server_socket.async_receive(
+                  asio::null_buffers(),
+                  [&](const error_code& error, size_t size) {
+                    BOOST_ASSERT(error);
+                    tested_server = true;
+                  });
+          });
+
+    client_socket.async_connect
+        ( acceptor.local_endpoint()
+        , [&](error_code error) {
+            BOOST_ASSERT(!error);
+            tested_client = true;
+            client_socket.close();
+          });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_client);
+    BOOST_REQUIRE(tested_server);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

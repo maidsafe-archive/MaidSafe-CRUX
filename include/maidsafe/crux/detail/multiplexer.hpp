@@ -88,6 +88,7 @@ public:
                         ConnectHandler&& handler);
 
     void start_receive();
+    void stop_receive();
 
     next_layer_type& next_layer();
     const next_layer_type& next_layer() const;
@@ -135,6 +136,8 @@ private:
     std::queue<std::unique_ptr<accept_input_type>> acceptor_queue;
 
     endpoint_type next_remote_endpoint;
+
+    bool was_closed;
 };
 
 } // namespace detail
@@ -167,12 +170,14 @@ std::shared_ptr<multiplexer> multiplexer::create(Types&&... args)
 inline multiplexer::multiplexer(next_layer_type&& udp_socket)
     : udp_socket(std::move(udp_socket))
     , receive_calls(0)
+    , was_closed(false)
 {
 }
 
 inline multiplexer::~multiplexer()
 {
     assert(sockets.empty());
+    assert(receive_calls == 0);
 
     // FIXME: Clean up
 }
@@ -189,7 +194,10 @@ inline void multiplexer::remove(socket_base *socket)
     assert(socket);
 
     sockets.erase(socket->remote_endpoint());
-    // FIXME: Prune request queues
+
+    if (sockets.empty()) {
+        next_layer().close();
+    }
 }
 
 template <typename SocketType,
@@ -293,6 +301,18 @@ inline void multiplexer::start_receive()
     }
 }
 
+inline void multiplexer::stop_receive()
+{
+    // Each socket may invoke only one receive call at a time.
+    assert(receive_calls > 0);
+    assert(receive_calls <= sockets.size() + acceptor_queue.size());
+
+    if (--receive_calls == 0)
+    {
+        was_closed = true;
+    }
+}
+
 inline void multiplexer::do_start_receive()
 {
     auto self(shared_from_this());
@@ -316,6 +336,8 @@ inline
 void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
+    if (was_closed) return;
+
     assert(receive_calls <= sockets.size() + acceptor_queue.size());
     assert(receive_calls > 0);
     --receive_calls;

@@ -14,6 +14,7 @@
 #include <map>
 #include <maidsafe/crux/detail/sequence_number.hpp>
 #include <maidsafe/crux/detail/periodic_timer.hpp>
+#include <maidsafe/crux/detail/constants.hpp>
 
 namespace maidsafe { namespace crux { namespace detail {
 
@@ -36,7 +37,8 @@ private:
         iteration_handler handler;
     };
 
-    using entries_type = std::map<index_type, entry_type>;
+    // Shared pointer used because lambdas don't support move semantics in c++11
+    using entries_type = std::map<index_type, std::shared_ptr<entry_type>>;
 
 public:
     transmit_queue(boost::asio::io_service&);
@@ -48,6 +50,8 @@ public:
 
     void apply_ack(index_type);
 
+    void shutdown();
+
     bool empty() const;
     std::size_t size() const;
 
@@ -56,15 +60,17 @@ private:
     void start_step(typename entries_type::iterator);
 
 private:
-    boost::asio::io_service& ios;
-    entries_type             entries;
-    periodic_timer           timer;
+    boost::asio::io_service&       ios;
+    entries_type                   entries;
+    periodic_timer                 timer;
+    std::shared_ptr<boost::none_t> shutdown_indicator;
 };
 
 template<typename Index>
 transmit_queue<Index>::transmit_queue(boost::asio::io_service& ios)
     : ios(ios)
     , timer(ios, [=]() { on_timer_tick(); })
+    , shutdown_indicator(std::make_shared<boost::none_t>())
 { }
 
 template<typename Index>
@@ -98,7 +104,7 @@ void transmit_queue<Index>::apply_ack(index_type index)
 
     bool is_active = entry_i == entries.begin();
 
-    entry_type entry = std::move(entry_i->second);
+    std::shared_ptr<entry_type> entry = std::move(entry_i->second);
 
     entries.erase(entry_i);
 
@@ -110,7 +116,24 @@ void transmit_queue<Index>::apply_ack(index_type index)
         }
     }
 
-    entry.handler(boost::system::error_code(), entry.buffer_size);
+    entry->handler(boost::system::error_code(), entry->buffer_size);
+}
+
+template<typename Index>
+void transmit_queue<Index>::shutdown() {
+    shutdown_indicator.reset();
+
+    timer.stop();
+
+    auto moved_entries = std::move(entries);
+
+    for (auto& entry_pair : moved_entries) {
+        auto entry = std::move(entry_pair.second);
+
+        ios.post([entry]() {
+            entry->handler(boost::asio::error::operation_aborted, entry->buffer_size);
+            });
+    }
 }
 
 template<typename Index>
@@ -121,7 +144,7 @@ void transmit_queue<Index>::push( index_type        index
 {
     bool was_empty = entries.empty();
 
-    auto insert_result = entries.insert(std::make_pair(index, entry_type()));
+    auto insert_result = entries.insert(std::make_pair(index, std::make_shared<entry_type>()));
 
     if (!insert_result.second) {
         return ios.post([=]() {
@@ -129,9 +152,9 @@ void transmit_queue<Index>::push( index_type        index
                 });
     }
 
-    auto& entry       = insert_result.first->second;
+    auto& entry       = *insert_result.first->second;
     entry.buffer_size = buffer_size;
-    entry.period      = std::chrono::milliseconds(3000);
+    entry.period      = constant::retransmission_period;
     entry.step        = std::move(step);
     entry.handler     = std::move(handler);
 
@@ -142,11 +165,13 @@ void transmit_queue<Index>::push( index_type        index
 
 template<typename Index>
 void transmit_queue<Index>::start_step(typename entries_type::iterator entry_i) {
-    auto* entry = &entry_i->second;
+    auto entry = entry_i->second;
 
-    entry->step([this, entry]( const boost::system::error_code& error
-                             , std::size_t bytes_transferred) {
-                   if (error) {
+    std::weak_ptr<boost::none_t> shutdown_guard = shutdown_indicator;
+
+    entry->step([=]( const boost::system::error_code& error
+                   , std::size_t bytes_transferred) {
+                   if (!shutdown_guard.lock() || error) {
                        return entry->handler(error, bytes_transferred);
                    }
                    // FIXME: Period should be = 

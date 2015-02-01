@@ -23,12 +23,14 @@
 #include <maidsafe/crux/detail/socket_base.hpp>
 #include <maidsafe/crux/detail/service.hpp>
 #include <maidsafe/crux/detail/cumulative_set.hpp>
+#include <maidsafe/crux/detail/periodic_timer.hpp>
 #include <maidsafe/crux/endpoint.hpp>
 #include <maidsafe/crux/resolver.hpp>
 
 #include <maidsafe/crux/detail/receive_input_type.hpp>
 #include <maidsafe/crux/detail/receive_output_type.hpp>
 #include <maidsafe/crux/detail/transmit_queue.hpp>
+#include <maidsafe/crux/detail/constants.hpp>
 
 namespace maidsafe
 {
@@ -180,7 +182,9 @@ private:
     bool is_expected_packet(sequence_type seq);
 
     void on_any_message_received();
-    void idempotent_start_receive();
+    void idempotent_start_receive() override;
+    void idempotent_stop_receive();
+    void on_keepalive_timeout();
 
 private:
     std::shared_ptr<detail::multiplexer> multiplexer;
@@ -200,6 +204,8 @@ private:
     sequence_history_type sequence_history;
 
     bool is_receiving;
+
+    detail::periodic_timer keepalive_timer;
 };
 
 } // namespace crux
@@ -220,7 +226,8 @@ inline socket::socket(boost::asio::io_service& io)
     : boost::asio::basic_io_object<service_type>(io),
       next_sequence(get_service().random()),
       transmit_queue(io),
-      is_receiving(false)
+      is_receiving(false),
+      keepalive_timer(io, [=]() { on_keepalive_timeout(); })
 {
 }
 
@@ -230,31 +237,60 @@ inline socket::socket(boost::asio::io_service& io,
       multiplexer(get_service().add(local_endpoint)),
       next_sequence(get_service().random()),
       transmit_queue(io),
-      is_receiving(false)
+      is_receiving(false),
+      keepalive_timer(io, [=]() { on_keepalive_timeout(); })
 {
 }
 
 inline socket::~socket()
 {
-    if (multiplexer)
-    {
-        get_service().remove(local_endpoint());
-        multiplexer->remove(this);
-    }
+    close();
 }
 
 inline void socket::close() {
-    //transmit_queue.shutdown();
+    // Already closed?
+    if (!multiplexer) return;
+
+    transmit_queue.shutdown();
+
+    while (!receive_input_queue.empty()) {
+        auto input = std::move(*receive_input_queue.front());
+        receive_input_queue.pop();
+
+        get_io_service().post([input]() {
+                input.handler(boost::asio::error::operation_aborted, 0);
+                });
+    }
+
+    idempotent_stop_receive();
+    get_service().remove(local_endpoint());
+    multiplexer->remove(this);
+    multiplexer = 0;
+}
+
+inline void socket::idempotent_stop_receive() {
+    if (!is_receiving) { return; }
+    is_receiving = false;
+    multiplexer->stop_receive();
 }
 
 inline void socket::idempotent_start_receive() {
     if (is_receiving) { return; }
     is_receiving = true;
     multiplexer->start_receive();
+
+    keepalive_timer.set_period(detail::constant::keepalive_timeout);
+    keepalive_timer.start();
 }
 
 inline void socket::on_any_message_received() {
     is_receiving = false;
+    keepalive_timer.stop();
+}
+
+inline void socket::on_keepalive_timeout() {
+    keepalive_timer.stop();
+    close();
 }
 
 inline boost::asio::io_service& socket::get_io_service()
