@@ -23,7 +23,7 @@
 #include <maidsafe/crux/detail/socket_base.hpp>
 #include <maidsafe/crux/detail/service.hpp>
 #include <maidsafe/crux/detail/cumulative_set.hpp>
-#include <maidsafe/crux/detail/periodic_timer.hpp>
+#include <maidsafe/crux/detail/timer.hpp>
 #include <maidsafe/crux/endpoint.hpp>
 #include <maidsafe/crux/resolver.hpp>
 
@@ -205,7 +205,7 @@ private:
 
     bool is_receiving;
 
-    detail::periodic_timer keepalive_timer;
+    detail::timer keepalive_timer;
 };
 
 } // namespace crux
@@ -289,7 +289,6 @@ inline void socket::on_any_message_received() {
 }
 
 inline void socket::on_keepalive_timeout() {
-    keepalive_timer.stop();
     close();
 }
 

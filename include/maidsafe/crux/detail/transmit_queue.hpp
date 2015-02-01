@@ -13,7 +13,7 @@
 
 #include <map>
 #include <maidsafe/crux/detail/sequence_number.hpp>
-#include <maidsafe/crux/detail/periodic_timer.hpp>
+#include <maidsafe/crux/detail/timer.hpp>
 #include <maidsafe/crux/detail/constants.hpp>
 
 namespace maidsafe { namespace crux { namespace detail {
@@ -23,7 +23,7 @@ namespace maidsafe { namespace crux { namespace detail {
 template<typename Index> class transmit_queue {
 private:
     using index_type = Index;
-    using duration_type = typename periodic_timer::duration_type;
+    using duration_type = typename detail::timer::duration_type;
 
 public:
     using iteration_handler = std::function<void(const boost::system::error_code&, std::size_t)>;
@@ -62,7 +62,7 @@ private:
 private:
     boost::asio::io_service&       ios;
     entries_type                   entries;
-    periodic_timer                 timer;
+    detail::timer                  timer;
     std::shared_ptr<boost::none_t> shutdown_indicator;
 };
 

@@ -20,17 +20,17 @@ namespace crux
 namespace detail
 {
 
-class periodic_timer {
+class timer {
 public:
     using handler_type  = std::function<void()>;
     using timer_type    = boost::asio::steady_timer;
     using duration_type = timer_type::duration;
 
 public:
-    periodic_timer(boost::asio::io_service&);
+    timer(boost::asio::io_service&);
 
     template<class HandlerType>
-    periodic_timer(boost::asio::io_service&, HandlerType&&);
+    timer(boost::asio::io_service&, HandlerType&&);
 
     void set_period(const duration_type&);
 
@@ -48,7 +48,7 @@ public:
     // (but never inside this fast_forward function).
     void fast_forward();
 
-    ~periodic_timer();
+    ~timer();
 
 private:
     void do_handle_tick();
@@ -66,7 +66,7 @@ private:
 
     state_type    state;
     duration_type period_duration;
-    timer_type    timer;
+    timer_type    asio_timer;
     handler_type  handler;
 
     std::shared_ptr<bool> was_destroyed;
@@ -84,38 +84,38 @@ namespace detail
 {
 
 inline
-periodic_timer::periodic_timer(boost::asio::io_service& ios)
+timer::timer(boost::asio::io_service& ios)
     : state(stopped)
-    , timer(ios)
+    , asio_timer(ios)
     , was_destroyed(std::make_shared<bool>(false))
 {}
 
 template<class HandlerType>
-periodic_timer::periodic_timer( boost::asio::io_service& ios
+timer::timer( boost::asio::io_service& ios
                               , HandlerType&& handler)
     : state(stopped)
-    , timer(ios)
+    , asio_timer(ios)
     , handler(std::forward<HandlerType>(handler))
     , was_destroyed(std::make_shared<bool>(false))
 {}
 
 inline
-periodic_timer::~periodic_timer() {
+timer::~timer() {
     stop();
     *was_destroyed = true;
 }
 
 inline
-void periodic_timer::set_period(const duration_type& duration) {
+void timer::set_period(const duration_type& duration) {
     period_duration = duration;
 }
 
 template<typename HandlerType>
-void periodic_timer::set_handler(HandlerType&& handler) {
+void timer::set_handler(HandlerType&& handler) {
     this->handler = std::forward<HandlerType>(handler);
 }
 
-inline void periodic_timer::start() {
+inline void timer::start() {
     switch (state) {
         case stopped: do_start();
                       break;
@@ -132,11 +132,11 @@ inline void periodic_timer::start() {
     }
 }
 
-inline void periodic_timer::stop() {
+inline void timer::stop() {
     switch (state) {
         case stopped: break;
         case running: state = canceling_to_stop;
-                      timer.cancel();
+                      asio_timer.cancel();
                       break;
         case executing: state = stopped;
                         break;
@@ -148,27 +148,27 @@ inline void periodic_timer::stop() {
     }
 }
 
-inline void periodic_timer::fast_forward() {
+inline void timer::fast_forward() {
     start();
     stop();
     state = canceling_to_ff;
 }
 
 inline
-void periodic_timer::do_start() {
+void timer::do_start() {
     state = running;
-    timer.expires_from_now(period_duration);
+    asio_timer.expires_from_now(period_duration);
 
     auto was_destroyed_copy = was_destroyed;
 
-    timer.async_wait(
+    asio_timer.async_wait(
             [=](const boost::system::error_code&) {
               if (*was_destroyed_copy) return;
               do_handle_tick();
             });
 }
 
-inline void periodic_timer::do_handle_tick() {
+inline void timer::do_handle_tick() {
     switch (state) {
         case stopped: return;
         case running: break;
@@ -183,21 +183,24 @@ inline void periodic_timer::do_handle_tick() {
     state = executing;
 
     if (handler) {
-        // The handler execution may destroy this periodic_timer
+        // The handler execution may destroy this timer
         // object or it may set the handler to a new value.
         auto was_destroyed_copy = was_destroyed;
 
-        auto local_handler = handler;
+        auto local_handler = std::move(handler);
 
         local_handler();
 
         // Has the handler destroyed this object?
         if (*was_destroyed_copy) return;
+
+        if (!handler) {
+            handler = std::move(local_handler);
+        }
     }
 
     if (state == executing) {
-        // User did not change the state.
-        start();
+        state = stopped;
     }
 }
 

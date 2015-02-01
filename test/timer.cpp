@@ -9,7 +9,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <boost/test/unit_test.hpp>
-#include <maidsafe/crux/detail/periodic_timer.hpp>
+#include <maidsafe/crux/detail/timer.hpp>
 
 namespace asio = boost::asio;
 using clock_type    = std::chrono::steady_clock;
@@ -40,14 +40,14 @@ duration_type abs(const std::chrono::duration<Rep, Period>& duration) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BOOST_AUTO_TEST_CASE(periodic_timer_start_stop)
+BOOST_AUTO_TEST_CASE(timer_start_stop)
 {
     using namespace maidsafe;
     using clock = std::chrono::steady_clock;
 
     asio::io_service ios;
 
-    crux::detail::periodic_timer timer(ios);
+    crux::detail::timer timer(ios);
 
     auto period_duration = milliseconds(100);
     const unsigned int required_tick_count = 3;
@@ -62,6 +62,7 @@ BOOST_AUTO_TEST_CASE(periodic_timer_start_stop)
             timer.stop();
             return;
         }
+        timer.start();
     };
 
     timer.set_period(period_duration);
@@ -78,14 +79,14 @@ BOOST_AUTO_TEST_CASE(periodic_timer_start_stop)
     BOOST_REQUIRE_LE(abs(test_duration - required_duration), milliseconds(10));
 }
 
-BOOST_AUTO_TEST_CASE(periodic_timer_start_restart)
+BOOST_AUTO_TEST_CASE(timer_start_restart)
 {
     using namespace maidsafe;
     using clock = std::chrono::steady_clock;
 
     asio::io_service ios;
 
-    crux::detail::periodic_timer timer(ios);
+    crux::detail::timer timer(ios);
 
     auto period_duration = milliseconds(100);
     const unsigned int stop1_tick_count = 3;
@@ -126,14 +127,14 @@ BOOST_AUTO_TEST_CASE(periodic_timer_start_restart)
     BOOST_REQUIRE_LE(abs(test_duration - required_duration), milliseconds(10));
 }
 
-BOOST_AUTO_TEST_CASE(periodic_timer_fast_forward)
+BOOST_AUTO_TEST_CASE(timer_fast_forward)
 {
     using namespace maidsafe;
     using clock = std::chrono::steady_clock;
 
     asio::io_service ios;
 
-    crux::detail::periodic_timer timer(ios);
+    crux::detail::timer timer(ios);
 
     auto start_time = clock::now();
     auto end_time   = start_time;
@@ -155,14 +156,14 @@ BOOST_AUTO_TEST_CASE(periodic_timer_fast_forward)
     BOOST_REQUIRE_LE(test_duration, milliseconds(10));
 }
 
-BOOST_AUTO_TEST_CASE(periodic_timer_start_and_fast_forward)
+BOOST_AUTO_TEST_CASE(timer_start_and_fast_forward)
 {
     using namespace maidsafe;
     using clock = std::chrono::steady_clock;
 
     asio::io_service ios;
 
-    crux::detail::periodic_timer timer(ios);
+    crux::detail::timer timer(ios);
 
     auto start_time = clock::now();
     auto end_time   = start_time;
@@ -185,14 +186,14 @@ BOOST_AUTO_TEST_CASE(periodic_timer_start_and_fast_forward)
     BOOST_REQUIRE_LE(test_duration, milliseconds(10));
 }
 
-BOOST_AUTO_TEST_CASE(periodic_timer_start_then_fast_forward)
+BOOST_AUTO_TEST_CASE(timer_start_then_fast_forward)
 {
     using namespace maidsafe;
     using clock = std::chrono::steady_clock;
 
     asio::io_service ios;
 
-    crux::detail::periodic_timer timer(ios);
+    crux::detail::timer timer(ios);
 
     auto start_time = clock::now();
     auto end_time   = start_time;
