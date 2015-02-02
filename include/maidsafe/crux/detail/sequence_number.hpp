@@ -39,6 +39,7 @@ public:
     sequence_number  operator++(int); // post-increment
 
     bool operator<(const sequence_number&) const;
+    bool operator>(const sequence_number&) const;
     bool operator==(const sequence_number&) const;
     bool operator!=(const sequence_number&) const;
     bool operator==(const NumericType&) const;
@@ -120,6 +121,12 @@ bool sequence_number<NumericType, Max>::operator<(const sequence_number& other) 
 }
 
 template<typename NumericType, NumericType Max>
+bool sequence_number<NumericType, Max>::operator>(const sequence_number& other) const
+{
+    return other < *this;
+}
+
+template<typename NumericType, NumericType Max>
 bool sequence_number<NumericType, Max>::operator==(const sequence_number& other) const
 {
     return n == other.n;
@@ -141,10 +148,32 @@ template<typename NumericType, NumericType Max>
 typename sequence_number<NumericType, Max>::difference_type
 sequence_number<NumericType, Max>::distance(const sequence_number& other) const
 {
-    if ((*this < other) && (n <= other.n))
-        return other.n - n;
+    if (other.n > n)
+    {
+        const value_type diff = other.n - n;
+        if (diff > max_value/2)
+        {
+            const value_type v = max_value - diff + 1;
+            return (v > max_value/2) ? v : -v;
+        }
+        else
+        {
+            return diff;
+        }
+    }
     else
-        return other.n + (max_value - n) + 1;
+    {
+        const value_type diff = n - other.n;
+        if (diff > max_value/2)
+        {
+            const value_type v = max_value - diff + 1;
+            return (v > max_value/2) ? -v : v;
+        }
+        else
+        {
+            return -diff;
+        }
+    }
 }
 
 }}} // namespace maidsafe::crux::detail

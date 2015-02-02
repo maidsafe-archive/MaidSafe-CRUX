@@ -17,13 +17,23 @@ using maidsafe::crux::detail::sequence_number;
 template<class SN> void test_limits()
 {
     constexpr auto max = SN::max_value;
+    constexpr auto half = max/2;
 
     BOOST_REQUIRE(SN(0)       < SN(1));
-    BOOST_REQUIRE(SN(0)       < SN(max/2));
-    BOOST_REQUIRE(SN(max)     < SN(max/2));
-    BOOST_REQUIRE(SN(max/2+1) < SN(0));
-    BOOST_REQUIRE(SN(max/2+1) < SN(max));
-    BOOST_REQUIRE(SN(max)     < SN(0));
+    BOOST_REQUIRE(SN(0)       < SN(half-1));
+    BOOST_REQUIRE(SN(0)       < SN(half));
+    BOOST_REQUIRE(SN(0)       > SN(half+1));
+    BOOST_REQUIRE(SN(0)       > SN(max-1));
+    BOOST_REQUIRE(SN(0)       > SN(max));
+    BOOST_REQUIRE(SN(half-1)  < SN(half));
+    BOOST_REQUIRE(SN(half-1)  < SN(half+1));
+    BOOST_REQUIRE(SN(half-1)  > SN(max-1));
+    BOOST_REQUIRE(SN(half-1)  > SN(max));
+    BOOST_REQUIRE(SN(half)    < SN(half+1));
+    BOOST_REQUIRE(SN(half)    < SN(max-1));
+    BOOST_REQUIRE(SN(half)    > SN(max));
+    BOOST_REQUIRE(SN(half+1)  < SN(max-1));
+    BOOST_REQUIRE(SN(half+1)  < SN(max));
 }
 
 BOOST_AUTO_TEST_SUITE(sequence_suite)
@@ -82,13 +92,13 @@ BOOST_AUTO_TEST_CASE(distances)
     sequence_number<T> zero(0);
     sequence_number<T> one(1);
     sequence_number<T> half(max/2);
-    sequence_number<T> almost_largest(max-1);
+    sequence_number<T> second_largest(max-1);
     sequence_number<T> largest(max);
 
     BOOST_CHECK_EQUAL(zero.distance(one), 1);
     BOOST_CHECK_EQUAL(one.distance(zero), -1);
-    BOOST_CHECK_EQUAL(almost_largest.distance(largest), 1);
-    BOOST_CHECK_EQUAL(largest.distance(almost_largest), -1);
+    BOOST_CHECK_EQUAL(second_largest.distance(largest), 1);
+    BOOST_CHECK_EQUAL(largest.distance(second_largest), -1);
     BOOST_CHECK_EQUAL(largest.distance(zero), 1);
     BOOST_CHECK_EQUAL(zero.distance(largest), -1);
     BOOST_CHECK_EQUAL(zero.distance(half), half.value());
@@ -97,10 +107,72 @@ BOOST_AUTO_TEST_CASE(distances)
     BOOST_CHECK_EQUAL(half.distance(one), -(half.value() - 1));
     BOOST_CHECK_EQUAL(largest.distance(half), -(half.value() + 1));
     BOOST_CHECK_EQUAL(half.distance(largest), half.value() + 1);
+    BOOST_CHECK_EQUAL(second_largest.distance(half), -half.value());
+    BOOST_CHECK_EQUAL(half.distance(second_largest), half.value());
     BOOST_CHECK_EQUAL(largest.distance(one), 2);
     BOOST_CHECK_EQUAL(one.distance(largest), -2);
-    BOOST_CHECK_EQUAL(almost_largest.distance(one), 3);
-    BOOST_CHECK_EQUAL(one.distance(almost_largest), -3);
+    BOOST_CHECK_EQUAL(second_largest.distance(one), 3);
+    BOOST_CHECK_EQUAL(one.distance(second_largest), -3);
+}
+
+BOOST_AUTO_TEST_CASE(short_distances)
+{
+    using T = std::uint16_t;
+    constexpr T max = sequence_number<T>::max_value;
+    sequence_number<T> zero(0);
+    sequence_number<T> one(1);
+    sequence_number<T> half(max/2);
+    sequence_number<T> second_largest(max-1);
+    sequence_number<T> largest(max);
+
+    BOOST_CHECK_EQUAL(zero.distance(one), 1);
+    BOOST_CHECK_EQUAL(one.distance(zero), -1);
+    BOOST_CHECK_EQUAL(second_largest.distance(largest), 1);
+    BOOST_CHECK_EQUAL(largest.distance(second_largest), -1);
+    BOOST_CHECK_EQUAL(largest.distance(zero), 1);
+    BOOST_CHECK_EQUAL(zero.distance(largest), -1);
+    BOOST_CHECK_EQUAL(zero.distance(half), half.value());
+    BOOST_CHECK_EQUAL(half.distance(zero), -half.value());
+    BOOST_CHECK_EQUAL(one.distance(half), half.value() - 1);
+    BOOST_CHECK_EQUAL(half.distance(one), -(half.value() - 1));
+    BOOST_CHECK_EQUAL(largest.distance(half), -(half.value() + 1));
+    BOOST_CHECK_EQUAL(half.distance(largest), half.value() + 1);
+    BOOST_CHECK_EQUAL(second_largest.distance(half), -half.value());
+    BOOST_CHECK_EQUAL(half.distance(second_largest), half.value());
+    BOOST_CHECK_EQUAL(largest.distance(one), 2);
+    BOOST_CHECK_EQUAL(one.distance(largest), -2);
+    BOOST_CHECK_EQUAL(second_largest.distance(one), 3);
+    BOOST_CHECK_EQUAL(one.distance(second_largest), -3);
+}
+
+BOOST_AUTO_TEST_CASE(custom_short_distances)
+{
+    using T = std::uint16_t;
+    constexpr T max = std::numeric_limits<T>::max() / 2;
+    sequence_number<T, max> zero(0);
+    sequence_number<T, max> one(1);
+    sequence_number<T, max> half(max/2);
+    sequence_number<T, max> second_largest(max-1);
+    sequence_number<T, max> largest(max);
+
+    BOOST_CHECK_EQUAL(zero.distance(one), 1);
+    BOOST_CHECK_EQUAL(one.distance(zero), -1);
+    BOOST_CHECK_EQUAL(second_largest.distance(largest), 1);
+    BOOST_CHECK_EQUAL(largest.distance(second_largest), -1);
+    BOOST_CHECK_EQUAL(largest.distance(zero), 1);
+    BOOST_CHECK_EQUAL(zero.distance(largest), -1);
+    BOOST_CHECK_EQUAL(zero.distance(half), half.value());
+    BOOST_CHECK_EQUAL(half.distance(zero), -half.value());
+    BOOST_CHECK_EQUAL(one.distance(half), half.value() - 1);
+    BOOST_CHECK_EQUAL(half.distance(one), -(half.value() - 1));
+    BOOST_CHECK_EQUAL(largest.distance(half), -(half.value() + 1));
+    BOOST_CHECK_EQUAL(half.distance(largest), half.value() + 1);
+    BOOST_CHECK_EQUAL(second_largest.distance(half), -half.value());
+    BOOST_CHECK_EQUAL(half.distance(second_largest), half.value());
+    BOOST_CHECK_EQUAL(largest.distance(one), 2);
+    BOOST_CHECK_EQUAL(one.distance(largest), -2);
+    BOOST_CHECK_EQUAL(second_largest.distance(one), 3);
+    BOOST_CHECK_EQUAL(one.distance(second_largest), -3);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
