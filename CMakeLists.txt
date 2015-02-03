@@ -8,6 +8,11 @@
 #
 ###############################################################################
 
+if(CMAKE_PROJECT_NAME STREQUAL maidsafe)
+  include("MaidSafe CMakeLists.txt")
+  return()
+endif()
+
 cmake_minimum_required(VERSION 2.8)
 project(crux CXX)
 
