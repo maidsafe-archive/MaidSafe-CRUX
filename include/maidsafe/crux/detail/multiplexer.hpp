@@ -218,8 +218,8 @@ void multiplexer::async_accept(SocketType& socket,
 
 template <typename AcceptHandler>
 void multiplexer::process_accept(const boost::system::error_code& error,
-                                 socket_base *socket,
-                                 const endpoint_type& current_remote_endpoint,
+                                 socket_base* /*socket*/,
+                                 const endpoint_type& /*current_remote_endpoint*/,
                                  AcceptHandler&& handler)
 {
     handler(error);
@@ -293,7 +293,8 @@ void multiplexer::send_data(ConstBufferSequence&& buffers,
 inline void multiplexer::start_receive()
 {
     // Each socket may invoke only one receive call at a time.
-    assert(receive_calls < sockets.size() + acceptor_queue.size());
+    assert(receive_calls < static_cast<decltype(receive_calls)>
+                           (sockets.size() + acceptor_queue.size()));
 
     if (receive_calls++ == 0)
     {
@@ -305,7 +306,8 @@ inline void multiplexer::stop_receive()
 {
     // Each socket may invoke only one receive call at a time.
     assert(receive_calls > 0);
-    assert(receive_calls <= sockets.size() + acceptor_queue.size());
+    assert(receive_calls <= static_cast<decltype(receive_calls)>
+                            (sockets.size() + acceptor_queue.size()));
 
     if (--receive_calls == 0)
     {
@@ -324,7 +326,7 @@ inline void multiplexer::do_start_receive()
          next_remote_endpoint,
          std::remove_reference<decltype(next_layer())>::type::message_peek,
          [self]
-         (boost::system::error_code error, std::size_t size) mutable
+         (boost::system::error_code error, std::size_t /*size*/) mutable
          {
             // The size parameter is useless here because what we get
             // is min(buffer_size, datagram_size) and our buffer size is 0.
@@ -338,7 +340,8 @@ void multiplexer::process_peek(boost::system::error_code error,
 {
     if (was_closed) return;
 
-    assert(receive_calls <= sockets.size() + acceptor_queue.size());
+    assert(receive_calls <= static_cast<decltype(receive_calls)>
+                            (sockets.size() + acceptor_queue.size()));
     assert(receive_calls > 0);
     --receive_calls;
 

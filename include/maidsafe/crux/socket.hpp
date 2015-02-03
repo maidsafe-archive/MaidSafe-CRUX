@@ -159,8 +159,7 @@ private:
                         std::size_t size);
 
     template <typename ConnectHandler>
-    void process_connect(const endpoint_type&,
-                         ConnectHandler&& handler);
+    void process_connect(ConnectHandler&& handler);
 
     template <typename ConnectHandler>
     void async_next_connect(resolver_type::iterator where,
@@ -304,7 +303,7 @@ inline socket::endpoint_type socket::local_endpoint() const
     return multiplexer->next_layer().local_endpoint();
 }
 
-bool socket::is_expected_packet(sequence_type seq) {
+inline bool socket::is_expected_packet(sequence_type seq) {
     // Currently we only let in packets that have sequence
     // number one after the previous one. This will change
     // in the future such that we'll filter out only those
@@ -366,8 +365,7 @@ socket::async_connect(endpoint_type remote_endpoint, CompletionToken&& token)
                      if (error) {
                         return handler(error);
                      }
-                     this->process_connect(remote_endpoint,
-                                           std::forward<handler_type>(handler));
+                     this->process_connect(std::forward<handler_type>(handler));
                  });
             break;
 
@@ -386,8 +384,7 @@ socket::async_connect(endpoint_type remote_endpoint, CompletionToken&& token)
 }
 
 template <typename ConnectHandler>
-void socket::process_connect(const endpoint_type& remote_endpoint,
-                             ConnectHandler&& handler)
+void socket::process_connect(ConnectHandler&& handler)
 {
     switch (state())
     {
@@ -497,7 +494,7 @@ void socket::process_next_connect(const boost::system::error_code& error,
     }
     else
     {
-        process_connect(*where, std::forward<decltype(handler)>(handler));
+        process_connect(std::forward<decltype(handler)>(handler));
     }
 }
 
@@ -652,7 +649,7 @@ void socket::process_data(const boost::system::error_code& error,
         // only schedule new job to the queue if it's not empty.
         send_keepalive(remote,
                        sequence_history.front(),
-                       [] (boost::system::error_code error) {});
+                       [] (boost::system::error_code) {});
 
         process_receive(error, payload_size, std::move(input->handler));
     }
