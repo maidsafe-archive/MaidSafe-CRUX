@@ -1,0 +1,97 @@
+#==================================================================================================#
+#                                                                                                  #
+#  Copyright 2015 MaidSafe.net limited                                                             #
+#                                                                                                  #
+#  Distributed under the Boost Software License, Version 1.0.                                      #
+#  (See accompanying file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)         #
+#                                                                                                  #
+#==================================================================================================#
+
+
+set(CMAKE_DISABLE_SOURCE_CHANGES ON)
+set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
+
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake_modules/standard_setup.cmake")
+  cmake_minimum_required(VERSION 2.8)  # To suppress warning cluttering error message
+  set(Msg "\nThis project can currently only be build as part of the MaidSafe super-project.  For")
+  set(Msg "${Msg} full details, see https://github.com/maidsafe/MaidSafe/wiki/Build-Instructions\n")
+  message(FATAL_ERROR "${Msg}")
+endif()
+
+project(crux)
+
+include(../../cmake_modules/standard_setup.cmake)
+
+
+#==================================================================================================#
+# Set up all files as GLOBs                                                                        #
+#==================================================================================================#
+# Can't use 'ms_glob_dir' since paths and file extensions don't follow MaidSafe conventions.
+file(GLOB CruxApi ${PROJECT_SOURCE_DIR}/include/maidsafe/crux/*.hpp)
+file(GLOB CruxHeaders ${PROJECT_SOURCE_DIR}/src/*.hpp)
+file(GLOB CruxSources ${PROJECT_SOURCE_DIR}/src/*.cpp)
+source_group("CRUX API Files" FILES ${CruxApi})
+source_group("CRUX Header Files" FILES ${CruxHeaders})
+source_group("CRUX Source Files" FILES ${CruxSources})
+
+file(GLOB CruxDetailApi ${PROJECT_SOURCE_DIR}/include/maidsafe/crux/detail/*.hpp)
+file(GLOB CruxDetailHeaders ${PROJECT_SOURCE_DIR}/src/detail/*.hpp)
+file(GLOB CruxDetailSources ${PROJECT_SOURCE_DIR}/src/detail/*.cpp)
+source_group("CRUX Detail API Files" FILES ${CruxDetailApi})
+source_group("CRUX Detail Header Files" FILES ${CruxDetailHeaders})
+source_group("CRUX Detail Source Files" FILES ${CruxDetailSources})
+set(CruxAllFiles ${CruxApi} ${CruxHeaders} ${CruxSources} ${CruxDetailApi} ${CruxDetailHeaders} ${CruxDetailSources})
+
+file(GLOB CruxTestsHeaders ${PROJECT_SOURCE_DIR}/test/*.hpp)
+file(GLOB CruxTestsSources ${PROJECT_SOURCE_DIR}/test/*.cpp)
+set(CruxTestsAllFiles ${CruxTestsHeaders} ${CruxTestsSources})
+source_group("Tests Headers Files" FILES ${CruxTestsHeaders})
+source_group("Tests Source Files" FILES ${CruxTestsSources})
+
+
+#==================================================================================================#
+# Define MaidSafe libraries and executables                                                        #
+#==================================================================================================#
+ms_add_static_library(maidsafe_crux ${CruxAllFiles})
+target_include_directories(maidsafe_crux PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(maidsafe_crux maidsafe_common)
+
+ms_add_executable(async_echo_server "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/async/echo_server.cpp)
+target_link_libraries(async_echo_server maidsafe_crux)
+
+ms_add_executable(async_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/async/echo_client.cpp)
+target_link_libraries(async_echo_client maidsafe_crux)
+
+ms_add_executable(coroutine_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/coroutine/echo_client.cpp)
+target_link_libraries(coroutine_echo_client maidsafe_crux)
+
+ms_add_executable(future_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/future/echo_client.cpp)
+target_link_libraries(future_echo_client maidsafe_crux)
+
+
+if(INCLUDE_TESTS)
+  ms_add_executable(test_crux "Tests/CRUX" ${CruxTestsAllFiles})
+  target_link_libraries(test_crux maidsafe_crux ${BoostTestLibs})
+endif()
+
+ms_rename_outdated_built_exes()
+
+
+#==================================================================================================#
+# Set compiler and linker flags                                                                    #
+#==================================================================================================#
+include(standard_flags)
+
+
+#==================================================================================================#
+# Tests                                                                                            #
+#==================================================================================================#
+if(INCLUDE_TESTS)
+  ms_add_default_tests()
+  add_test(NAME AllCruxTests COMMAND $<TARGET_FILE:test_crux>)
+  set_property(TEST AllCruxTests PROPERTY LABELS Crux ${TASK_LABEL})
+  set(AllCruxTestsTimeout 60)  # seconds
+  ms_update_test_timeout(AllCruxTestsTimeout)
+  set_property(TEST AllCruxTests PROPERTY TIMEOUT ${AllCruxTestsTimeout})
+  ms_test_summary_output()
+endif()
