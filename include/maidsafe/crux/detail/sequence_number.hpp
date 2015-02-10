@@ -12,11 +12,13 @@
 #define MAIDSAFE_CRUX_DETAIL_SEQUENCE_NUMBER_HPP
 
 #include <type_traits>
+#include <boost/config.hpp>
+#include <boost/integer_traits.hpp>
 
 namespace maidsafe { namespace crux { namespace detail {
 
 template< typename NumericType
-        , NumericType Max = std::numeric_limits<NumericType>::max()
+        , NumericType Max = boost::integer_traits<NumericType>::const_max
         >
 class sequence_number {
 
@@ -27,8 +29,8 @@ class sequence_number {
 public:
     using value_type = NumericType;
     using difference_type = typename std::make_signed<value_type>::type;
-    static constexpr value_type max_value = Max;
-    static constexpr value_type middle_value = Max/2U;
+    BOOST_STATIC_CONSTEXPR value_type max_value = Max;
+    BOOST_STATIC_CONSTEXPR value_type middle_value = Max/2U;
 
 public:
     sequence_number();
@@ -155,7 +157,7 @@ sequence_number<NumericType, Max>::distance(const sequence_number& other) const
         if (diff > middle_value)
         {
             const value_type v = max_value - diff + 1;
-            return -v;
+            return -static_cast<difference_type>(v);
         }
         else
         {
@@ -168,11 +170,11 @@ sequence_number<NumericType, Max>::distance(const sequence_number& other) const
         if (diff > middle_value)
         {
             const value_type v = max_value - diff + 1;
-            return (v > middle_value) ? -v : v;
+            return (v > middle_value) ? -static_cast<difference_type>(v) : v;
         }
         else
         {
-            return -diff;
+            return -static_cast<difference_type>(diff);
         }
     }
 }

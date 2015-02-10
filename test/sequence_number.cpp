@@ -9,6 +9,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <boost/test/unit_test.hpp>
+#include <boost/config.hpp>
+#include <boost/integer_traits.hpp>
 #include <cstdint>
 #include <maidsafe/crux/detail/sequence_number.hpp>
 
@@ -16,8 +18,8 @@ using maidsafe::crux::detail::sequence_number;
 
 template<class SN> void test_limits()
 {
-    constexpr auto max = SN::max_value;
-    constexpr auto half = max/2;
+    BOOST_STATIC_CONSTEXPR auto max = SN::max_value;
+    BOOST_STATIC_CONSTEXPR auto half = max/2;
 
     BOOST_REQUIRE(SN(0)       < SN(1));
     BOOST_REQUIRE(SN(0)       < SN(half-1));
@@ -56,7 +58,7 @@ BOOST_AUTO_TEST_CASE(sequence_number_uint32)
 BOOST_AUTO_TEST_CASE(sequence_number_uint32_custom_max)
 {
     using T = std::uint32_t;
-    constexpr T max = std::numeric_limits<T>::max();
+    BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max;
 
     test_limits<sequence_number<T, max/2>>();
     test_limits<sequence_number<T, max/4>>();
@@ -67,7 +69,7 @@ BOOST_AUTO_TEST_CASE(sequence_number_uint32_custom_max)
 BOOST_AUTO_TEST_CASE(sequence_number_pre_increment)
 {
     using T = std::uint8_t;
-    constexpr T max = std::numeric_limits<T>::max()/2;
+    BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max/2;
     sequence_number<T, max> s;
     std::uint32_t counter = 0;
     while ((++s).value()) { ++counter; }
@@ -77,7 +79,7 @@ BOOST_AUTO_TEST_CASE(sequence_number_pre_increment)
 BOOST_AUTO_TEST_CASE(sequence_number_post_increment)
 {
     using T = std::uint8_t;
-    constexpr T max = std::numeric_limits<T>::max()/2;
+    BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max/2;
     sequence_number<T, max> s;
     s++;
     std::uint32_t counter = 0;
@@ -88,7 +90,7 @@ BOOST_AUTO_TEST_CASE(sequence_number_post_increment)
 BOOST_AUTO_TEST_CASE(short_distances)
 {
     using T = std::uint16_t;
-    constexpr T max = sequence_number<T>::max_value;
+    BOOST_STATIC_CONSTEXPR T max = sequence_number<T>::max_value;
     sequence_number<T> zero(0);
     sequence_number<T> one(1);
     sequence_number<T> half(max/2);
@@ -118,7 +120,8 @@ BOOST_AUTO_TEST_CASE(short_distances)
 BOOST_AUTO_TEST_CASE(medium_distances)
 {
     using T = std::uint32_t;
-    constexpr T max = sequence_number<T>::max_value;
+    using difference_type = sequence_number<T>::difference_type;
+    BOOST_STATIC_CONSTEXPR T max = sequence_number<T>::max_value;
     sequence_number<T> zero(0);
     sequence_number<T> one(1);
     sequence_number<T> half(max/2);
@@ -131,14 +134,14 @@ BOOST_AUTO_TEST_CASE(medium_distances)
     BOOST_CHECK_EQUAL(largest.distance(second_largest), -1);
     BOOST_CHECK_EQUAL(largest.distance(zero), 1);
     BOOST_CHECK_EQUAL(zero.distance(largest), -1);
-    BOOST_CHECK_EQUAL(zero.distance(half), half.value());
-    BOOST_CHECK_EQUAL(half.distance(zero), -half.value());
-    BOOST_CHECK_EQUAL(one.distance(half), half.value() - 1);
-    BOOST_CHECK_EQUAL(half.distance(one), -(half.value() - 1));
-    BOOST_CHECK_EQUAL(largest.distance(half), -(half.value() + 1));
+    BOOST_CHECK_EQUAL(zero.distance(half), static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(zero), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(one.distance(half), static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(half.distance(one), -static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(largest.distance(half), -static_cast<difference_type>(half.value() + 1));
     BOOST_CHECK_EQUAL(half.distance(largest), largest.distance(half));
-    BOOST_CHECK_EQUAL(second_largest.distance(half), -half.value());
-    BOOST_CHECK_EQUAL(half.distance(second_largest), half.value());
+    BOOST_CHECK_EQUAL(second_largest.distance(half), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(second_largest), static_cast<difference_type>(half.value()));
     BOOST_CHECK_EQUAL(largest.distance(one), 2);
     BOOST_CHECK_EQUAL(one.distance(largest), -2);
     BOOST_CHECK_EQUAL(second_largest.distance(one), 3);
@@ -148,7 +151,8 @@ BOOST_AUTO_TEST_CASE(medium_distances)
 BOOST_AUTO_TEST_CASE(long_distances)
 {
     using T = std::uint64_t;
-    constexpr T max = sequence_number<T>::max_value;
+    using difference_type = sequence_number<T>::difference_type;
+    BOOST_STATIC_CONSTEXPR T max = sequence_number<T>::max_value;
     sequence_number<T> zero(0);
     sequence_number<T> one(1);
     sequence_number<T> half(max/2);
@@ -161,14 +165,14 @@ BOOST_AUTO_TEST_CASE(long_distances)
     BOOST_CHECK_EQUAL(largest.distance(second_largest), -1);
     BOOST_CHECK_EQUAL(largest.distance(zero), 1);
     BOOST_CHECK_EQUAL(zero.distance(largest), -1);
-    BOOST_CHECK_EQUAL(zero.distance(half), half.value());
-    BOOST_CHECK_EQUAL(half.distance(zero), -half.value());
-    BOOST_CHECK_EQUAL(one.distance(half), half.value() - 1);
-    BOOST_CHECK_EQUAL(half.distance(one), -(half.value() - 1));
-    BOOST_CHECK_EQUAL(largest.distance(half), -(half.value() + 1));
+    BOOST_CHECK_EQUAL(zero.distance(half), static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(zero), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(one.distance(half), static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(half.distance(one), -static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(largest.distance(half), -static_cast<difference_type>(half.value() + 1));
     BOOST_CHECK_EQUAL(half.distance(largest), largest.distance(half));
-    BOOST_CHECK_EQUAL(second_largest.distance(half), -half.value());
-    BOOST_CHECK_EQUAL(half.distance(second_largest), half.value());
+    BOOST_CHECK_EQUAL(second_largest.distance(half), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(second_largest), static_cast<difference_type>(half.value()));
     BOOST_CHECK_EQUAL(largest.distance(one), 2);
     BOOST_CHECK_EQUAL(one.distance(largest), -2);
     BOOST_CHECK_EQUAL(second_largest.distance(one), 3);
@@ -178,7 +182,7 @@ BOOST_AUTO_TEST_CASE(long_distances)
 BOOST_AUTO_TEST_CASE(custom_short_distances)
 {
     using T = std::uint16_t;
-    constexpr T max = std::numeric_limits<T>::max() / (1 << 1);
+    BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max / (1 << 1);
     sequence_number<T, max> zero(0);
     sequence_number<T, max> one(1);
     sequence_number<T, max> half(max/2);
@@ -208,7 +212,8 @@ BOOST_AUTO_TEST_CASE(custom_short_distances)
 BOOST_AUTO_TEST_CASE(custom_medium_distances)
 {
     using T = std::uint32_t;
-    constexpr T max = std::numeric_limits<T>::max() / (1 << 1);
+    using difference_type = sequence_number<T>::difference_type;
+    BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max / (1 << 1);
     sequence_number<T, max> zero(0);
     sequence_number<T, max> one(1);
     sequence_number<T, max> half(max/2);
@@ -221,14 +226,14 @@ BOOST_AUTO_TEST_CASE(custom_medium_distances)
     BOOST_CHECK_EQUAL(largest.distance(second_largest), -1);
     BOOST_CHECK_EQUAL(largest.distance(zero), 1);
     BOOST_CHECK_EQUAL(zero.distance(largest), -1);
-    BOOST_CHECK_EQUAL(zero.distance(half), half.value());
-    BOOST_CHECK_EQUAL(half.distance(zero), -half.value());
-    BOOST_CHECK_EQUAL(one.distance(half), half.value() - 1);
-    BOOST_CHECK_EQUAL(half.distance(one), -(half.value() - 1));
-    BOOST_CHECK_EQUAL(largest.distance(half), -(half.value() + 1));
+    BOOST_CHECK_EQUAL(zero.distance(half), static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(zero), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(one.distance(half), static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(half.distance(one), -static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(largest.distance(half), -static_cast<difference_type>(half.value() + 1));
     BOOST_CHECK_EQUAL(half.distance(largest), largest.distance(half));
-    BOOST_CHECK_EQUAL(second_largest.distance(half), -half.value());
-    BOOST_CHECK_EQUAL(half.distance(second_largest), half.value());
+    BOOST_CHECK_EQUAL(second_largest.distance(half), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(second_largest), static_cast<difference_type>(half.value()));
     BOOST_CHECK_EQUAL(largest.distance(one), 2);
     BOOST_CHECK_EQUAL(one.distance(largest), -2);
     BOOST_CHECK_EQUAL(second_largest.distance(one), 3);
@@ -238,7 +243,8 @@ BOOST_AUTO_TEST_CASE(custom_medium_distances)
 BOOST_AUTO_TEST_CASE(custom_long_distances)
 {
     using T = std::uint64_t;
-    constexpr T max = std::numeric_limits<T>::max() / (1 << 1);
+    using difference_type = sequence_number<T>::difference_type;
+    BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max / (1 << 1);
     sequence_number<T, max> zero(0);
     sequence_number<T, max> one(1);
     sequence_number<T, max> half(max/2);
@@ -251,14 +257,14 @@ BOOST_AUTO_TEST_CASE(custom_long_distances)
     BOOST_CHECK_EQUAL(largest.distance(second_largest), -1);
     BOOST_CHECK_EQUAL(largest.distance(zero), 1);
     BOOST_CHECK_EQUAL(zero.distance(largest), -1);
-    BOOST_CHECK_EQUAL(zero.distance(half), half.value());
-    BOOST_CHECK_EQUAL(half.distance(zero), -half.value());
-    BOOST_CHECK_EQUAL(one.distance(half), half.value() - 1);
-    BOOST_CHECK_EQUAL(half.distance(one), -(half.value() - 1));
-    BOOST_CHECK_EQUAL(largest.distance(half), -(half.value() + 1));
+    BOOST_CHECK_EQUAL(zero.distance(half), static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(zero), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(one.distance(half), static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(half.distance(one), -static_cast<difference_type>(half.value() - 1));
+    BOOST_CHECK_EQUAL(largest.distance(half), -static_cast<difference_type>(half.value() + 1));
     BOOST_CHECK_EQUAL(half.distance(largest), largest.distance(half));
-    BOOST_CHECK_EQUAL(second_largest.distance(half), -half.value());
-    BOOST_CHECK_EQUAL(half.distance(second_largest), half.value());
+    BOOST_CHECK_EQUAL(second_largest.distance(half), -static_cast<difference_type>(half.value()));
+    BOOST_CHECK_EQUAL(half.distance(second_largest), static_cast<difference_type>(half.value()));
     BOOST_CHECK_EQUAL(largest.distance(one), 2);
     BOOST_CHECK_EQUAL(one.distance(largest), -2);
     BOOST_CHECK_EQUAL(second_largest.distance(one), 3);
@@ -268,7 +274,8 @@ BOOST_AUTO_TEST_CASE(custom_long_distances)
 BOOST_AUTO_TEST_CASE(custom4_short_distances)
 {
     using T = std::uint16_t;
-    constexpr T max = std::numeric_limits<T>::max() / (1 << 4);
+    using difference_type = sequence_number<T>::difference_type;
+    BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max / (1 << 4);
     sequence_number<T, max> zero(0);
     sequence_number<T, max> one(1);
     sequence_number<T, max> half(max/2);

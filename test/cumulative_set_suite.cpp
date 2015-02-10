@@ -20,9 +20,12 @@ using cumulative_set = maidsafe::crux::detail::cumulative_set<sequence_number, s
 namespace std
 {
 
-ostream& operator << (ostream& stream, const sequence_number& number)
+ostream& operator << (ostream& stream, const boost::optional<sequence_number>& number)
 {
-    stream << number.value();
+    if (number)
+        stream << number.value();
+    else
+        stream << "no value";
     return stream;
 }
 
