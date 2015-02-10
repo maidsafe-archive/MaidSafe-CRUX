@@ -26,8 +26,9 @@ class sequence_number {
 
 public:
     using value_type = NumericType;
-    using difference_type = std::ptrdiff_t;
+    using difference_type = typename std::make_signed<value_type>::type;
     static constexpr value_type max_value = Max;
+    static constexpr value_type middle_value = Max/2U;
 
 public:
     sequence_number();
@@ -116,8 +117,8 @@ sequence_number<NumericType, Max>::operator++(int) {
 template<typename NumericType, NumericType Max>
 bool sequence_number<NumericType, Max>::operator<(const sequence_number& other) const
 {
-    return ((other.n > n) && (other.n - n <= max_value/2))
-        || ((other.n < n) && (n - other.n >  max_value/2));
+    return ((other.n > n) && (other.n - n <= middle_value))
+        || ((other.n < n) && (n - other.n >  middle_value));
 }
 
 template<typename NumericType, NumericType Max>
@@ -151,10 +152,10 @@ sequence_number<NumericType, Max>::distance(const sequence_number& other) const
     if (other.n > n)
     {
         const value_type diff = other.n - n;
-        if (diff > max_value/2)
+        if (diff > middle_value)
         {
             const value_type v = max_value - diff + 1;
-            return (v > max_value/2) ? v : -v;
+            return -v;
         }
         else
         {
@@ -164,10 +165,10 @@ sequence_number<NumericType, Max>::distance(const sequence_number& other) const
     else
     {
         const value_type diff = n - other.n;
-        if (diff > max_value/2)
+        if (diff > middle_value)
         {
             const value_type v = max_value - diff + 1;
-            return (v > max_value/2) ? -v : v;
+            return (v > middle_value) ? -v : v;
         }
         else
         {
