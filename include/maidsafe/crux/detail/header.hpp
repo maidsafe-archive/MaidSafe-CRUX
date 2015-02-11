@@ -55,10 +55,10 @@ struct handshake {
     }
 
     void encode(detail::encoder& encoder) const {
-        encoder.put<std::uint16_t>(header::constant::type_handshake
-                                   | std::min<std::size_t>(3, retransmission_count)
-                                   | (ack ? header::constant::ack_type_cumulative
-                                          : header::constant::ack_type_none));
+        encoder.put<std::uint16_t>(
+            header::constant::type_handshake
+            | static_cast<std::uint16_t>(std::min<std::size_t>(3, retransmission_count))
+            | (ack ? header::constant::ack_type_cumulative : header::constant::ack_type_none));
         encoder.put<std::uint16_t>(version);
         encoder.put<std::uint32_t>(initial_sequence_number.value());
         encoder.put<std::uint32_t>(ack ? ack->value() : 0);
@@ -93,10 +93,10 @@ struct keepalive {
     }
 
     void encode(detail::encoder& encoder) const {
-        encoder.put<std::uint16_t>(header::constant::type_keepalive
-                                   | std::min<std::size_t>(3, retransmission_count)
-                                   | (ack ? header::constant::ack_type_cumulative
-                                          : header::constant::ack_type_none));
+        encoder.put<std::uint16_t>(
+            header::constant::type_keepalive
+            | static_cast<std::uint16_t>(std::min<std::size_t>(3, retransmission_count))
+            | (ack ? header::constant::ack_type_cumulative : header::constant::ack_type_none));
         encoder.put<std::uint16_t>(0);
         encoder.put<std::uint32_t>(sequence_number.value());
         encoder.put<std::uint32_t>(ack ? ack->value() : 0);
@@ -132,10 +132,10 @@ struct data {
     }
 
     void encode(detail::encoder& encoder) const {
-        encoder.put<std::uint16_t>(header::constant::type_data
-                                   | std::min<std::size_t>(3, retransmission_count)
-                                   | (ack ? header::constant::ack_type_cumulative
-                                          : header::constant::ack_type_none));
+        encoder.put<std::uint16_t>(
+            header::constant::type_data
+            | static_cast<std::uint16_t>(std::min<std::size_t>(3, retransmission_count))
+            | (ack ? header::constant::ack_type_cumulative : header::constant::ack_type_none));
         encoder.put<std::uint16_t>(0);
         encoder.put<std::uint32_t>(sequence_number.value());
         encoder.put<std::uint32_t>(ack ? ack->value() : 0);

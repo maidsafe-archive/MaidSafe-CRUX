@@ -39,13 +39,13 @@ BOOST_AUTO_TEST_CASE(accept___connect)
     bool tested_server = false;
 
     acceptor.async_accept(server_socket, [&](error_code error) {
-                                           BOOST_ASSERT(!error);
+                                           BOOST_VERIFY(!error);
                                            tested_server = true;
                                          });
 
     client_socket.async_connect(acceptor.local_endpoint(),
                                 [&](error_code error) {
-                                  BOOST_ASSERT(!error);
+                                  BOOST_VERIFY(!error);
                                   tested_client = true;
                                 });
 
@@ -74,12 +74,12 @@ BOOST_AUTO_TEST_CASE(accept_receive___connect_send)
     bool tested_send    = false;
 
     acceptor.async_accept(server_socket, [&](error_code error) {
-            BOOST_ASSERT(!error);
+            BOOST_VERIFY(!error);
 
             server_socket.async_receive(
                 asio::buffer(rx_data),
                 [&](const error_code& error, size_t size) {
-                  BOOST_ASSERT(!error);
+                  BOOST_VERIFY(!error);
                   BOOST_REQUIRE_EQUAL(size, tx_data.size());
                   BOOST_REQUIRE_EQUAL(to_string(rx_data), to_string(tx_data));
 
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(accept_receive___connect_send)
     client_socket.async_connect(
             acceptor.local_endpoint(),
             [&](error_code error) {
-              BOOST_ASSERT(!error);
+              BOOST_VERIFY(!error);
 
               client_socket.async_send(asio::buffer(tx_data),
                   [&](error_code error, size_t size) {
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(accept_send___connect_receive)
     bool tested_send    = false;
 
     acceptor.async_accept(server_socket, [&](error_code error) {
-            BOOST_ASSERT(!error);
+            BOOST_VERIFY(!error);
 
             server_socket.async_send(asio::buffer(tx_data),
                 [&](error_code error, size_t size) {
@@ -140,12 +140,12 @@ BOOST_AUTO_TEST_CASE(accept_send___connect_receive)
     client_socket.async_connect(
             acceptor.local_endpoint(),
             [&](error_code error) {
-              BOOST_ASSERT(!error);
+              BOOST_VERIFY(!error);
 
               client_socket.async_receive(
                   asio::buffer(rx_data),
                   [&](const error_code& error, size_t size) {
-                    BOOST_ASSERT(!error);
+                    BOOST_VERIFY(!error);
                     BOOST_REQUIRE_EQUAL(size, tx_data.size());
                     BOOST_REQUIRE_EQUAL(to_string(rx_data), to_string(tx_data));
 
@@ -177,13 +177,13 @@ BOOST_AUTO_TEST_CASE(accept_receive_receive___connect_send_send)
     std::vector<char>  rx_data(blank_message.begin(), blank_message.end());
 
     acceptor.async_accept(server_socket, [&](error_code error) {
-            BOOST_ASSERT(!error);
+            BOOST_VERIFY(!error);
 
             server_socket.async_receive(
                 asio::buffer(rx_data),
                 [&](const error_code& error, size_t size) {
-                  BOOST_ASSERT(!error);
-                  BOOST_ASSERT(size == message1_text.size());
+                  BOOST_VERIFY(!error);
+                  BOOST_VERIFY(size == message1_text.size());
                   BOOST_REQUIRE_EQUAL
                       (to_string(rx_data), message1_text);
 
@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE(accept_receive_receive___connect_send_send)
                   server_socket.async_receive(
                       asio::buffer(rx_data),
                       [&](const error_code& error, size_t size) {
-                          BOOST_ASSERT(!error);
+                          BOOST_VERIFY(!error);
                           BOOST_REQUIRE_EQUAL(size, rx_data.size());
                           BOOST_REQUIRE_EQUAL
                             (to_string(rx_data), message2_text);
@@ -205,7 +205,7 @@ BOOST_AUTO_TEST_CASE(accept_receive_receive___connect_send_send)
     client_socket.async_connect(
             acceptor.local_endpoint(),
             [&](error_code error) {
-              BOOST_ASSERT(!error);
+              BOOST_VERIFY(!error);
 
               client_socket.async_send(asio::buffer(tx_data),
                   [&](error_code error, size_t size) {
@@ -245,21 +245,21 @@ BOOST_AUTO_TEST_CASE(accept_receive_send___connect_send_receive)
     std::vector<char> server_tx_data(message2_text.begin(), message2_text.end());
 
     acceptor.async_accept(server_socket, [&](error_code error) {
-            BOOST_ASSERT(!error);
+            BOOST_VERIFY(!error);
 
             server_socket.async_receive(
                 asio::buffer(server_rx_data),
                 [&](const error_code& error, size_t size) {
-                  BOOST_ASSERT(!error);
-                  BOOST_ASSERT(size == message1_text.size());
+                  BOOST_VERIFY(!error);
+                  BOOST_VERIFY(size == message1_text.size());
                   BOOST_REQUIRE_EQUAL
                       (to_string(server_rx_data), message1_text);
 
                   server_socket.async_send(
                       asio::buffer(server_tx_data),
                       [&](const error_code& error, size_t size) {
-                          BOOST_ASSERT(!error);
-                          BOOST_ASSERT(size == server_tx_data.size());
+                          BOOST_VERIFY(!error);
+                          BOOST_VERIFY(size == server_tx_data.size());
                       });
                 });
             });
@@ -270,7 +270,7 @@ BOOST_AUTO_TEST_CASE(accept_receive_send___connect_send_receive)
     client_socket.async_connect(
             acceptor.local_endpoint(),
             [&](error_code error) {
-              BOOST_ASSERT(!error);
+              BOOST_VERIFY(!error);
 
               client_socket.async_send(asio::buffer(client_tx_data),
                   [&](error_code error, size_t size) {
@@ -313,12 +313,13 @@ BOOST_AUTO_TEST_CASE(keepalive_timeout)
     acceptor.async_accept
         ( server_socket
         , [&](error_code error) {
-              BOOST_ASSERT(!error);
+              BOOST_VERIFY(!error);
 
               server_socket.async_receive(
                   asio::null_buffers(),
                   [&](const error_code& error, size_t size) {
-                    BOOST_ASSERT(error);
+                    BOOST_VERIFY(error);
+                    static_cast<void>(size);
                     tested_server = true;
                   });
           });
@@ -326,7 +327,7 @@ BOOST_AUTO_TEST_CASE(keepalive_timeout)
     client_socket.async_connect
         ( acceptor.local_endpoint()
         , [&](error_code error) {
-            BOOST_ASSERT(!error);
+            BOOST_VERIFY(!error);
             tested_client = true;
             client_socket.close();
           });

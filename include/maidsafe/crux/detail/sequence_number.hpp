@@ -12,11 +12,13 @@
 #define MAIDSAFE_CRUX_DETAIL_SEQUENCE_NUMBER_HPP
 
 #include <type_traits>
+#include <boost/config.hpp>
+#include <boost/integer_traits.hpp>
 
 namespace maidsafe { namespace crux { namespace detail {
 
 template< typename NumericType
-        , NumericType Max = std::numeric_limits<NumericType>::max()
+        , NumericType Max = boost::integer_traits<NumericType>::const_max
         >
 class sequence_number {
 
@@ -26,8 +28,9 @@ class sequence_number {
 
 public:
     using value_type = NumericType;
-    using difference_type = std::ptrdiff_t;
-    static constexpr value_type max_value = Max;
+    using difference_type = typename std::make_signed<value_type>::type;
+    BOOST_STATIC_CONSTEXPR value_type max_value = Max;
+    BOOST_STATIC_CONSTEXPR value_type middle_value = Max/2U;
 
 public:
     sequence_number();
@@ -116,8 +119,8 @@ sequence_number<NumericType, Max>::operator++(int) {
 template<typename NumericType, NumericType Max>
 bool sequence_number<NumericType, Max>::operator<(const sequence_number& other) const
 {
-    return ((other.n > n) && (other.n - n <= max_value/2))
-        || ((other.n < n) && (n - other.n >  max_value/2));
+    return ((other.n > n) && (other.n - n <= middle_value))
+        || ((other.n < n) && (n - other.n >  middle_value));
 }
 
 template<typename NumericType, NumericType Max>
@@ -151,10 +154,10 @@ sequence_number<NumericType, Max>::distance(const sequence_number& other) const
     if (other.n > n)
     {
         const value_type diff = other.n - n;
-        if (diff > max_value/2)
+        if (diff > middle_value)
         {
             const value_type v = max_value - diff + 1;
-            return (v > max_value/2) ? v : -v;
+            return -static_cast<difference_type>(v);
         }
         else
         {
@@ -164,14 +167,14 @@ sequence_number<NumericType, Max>::distance(const sequence_number& other) const
     else
     {
         const value_type diff = n - other.n;
-        if (diff > max_value/2)
+        if (diff > middle_value)
         {
             const value_type v = max_value - diff + 1;
-            return (v > max_value/2) ? -v : v;
+            return (v > middle_value) ? -static_cast<difference_type>(v) : v;
         }
         else
         {
-            return -diff;
+            return -static_cast<difference_type>(diff);
         }
     }
 }

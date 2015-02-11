@@ -70,7 +70,7 @@ public:
                    const endpoint_type& endpoint,
                    sequence_type sequence,
                    boost::optional<ack_sequence_type> ack,
-                   std::size_t retransmission_count,
+                   std::uint16_t retransmission_count,
                    WriteHandler&& handler);
 
     template <typename ConnectHandler>
@@ -272,7 +272,7 @@ void multiplexer::send_data(ConstBufferSequence&& buffers,
                             const endpoint_type& endpoint,
                             sequence_type sequence,
                             boost::optional<ack_sequence_type> ack,
-                            std::size_t retransmission_count,
+                            std::uint16_t retransmission_count,
                             WriteHandler&& handler)
 {
     auto header = std::make_shared<header::data_type>();
