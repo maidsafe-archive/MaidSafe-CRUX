@@ -23,7 +23,7 @@ namespace std
 ostream& operator << (ostream& stream, const boost::optional<sequence_number>& number)
 {
     if (number)
-        stream << number.value();
+        stream << number->value();
     else
         stream << "no value";
     return stream;
