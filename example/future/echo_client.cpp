@@ -11,6 +11,7 @@
 #include <string>
 #include <functional>
 #include <thread>
+#include <iostream>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/use_future.hpp>
 #include <maidsafe/crux/socket.hpp>

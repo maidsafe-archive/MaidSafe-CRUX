@@ -10,6 +10,7 @@
 
 #include <string>
 #include <functional>
+#include <iostream>
 #include <boost/asio/spawn.hpp>
 #include <maidsafe/crux/socket.hpp>
 
