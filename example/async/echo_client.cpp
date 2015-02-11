@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <iostream>
 #include <boost/asio/connect.hpp>
 #include <maidsafe/crux/socket.hpp>
 
@@ -49,7 +50,7 @@ private:
         std::shared_ptr<message_type> message = std::make_shared<message_type>(data.begin(), data.end());
         socket.async_send(boost::asio::buffer(*message),
                           [this, message] (boost::system::error_code error,
-                                           std::size_t length)
+                                           std::size_t /*length*/)
                           {
                               if (!error)
                               {
@@ -66,8 +67,8 @@ private:
     {
         std::shared_ptr<message_type> message = std::make_shared<message_type>(1400);
         socket.async_receive(boost::asio::buffer(*message),
-                             [this, message] (boost::system::error_code error,
-                                              std::size_t length)
+                             [this, message] (boost::system::error_code /*error*/,
+                                              std::size_t /*length*/)
                              {
                                  for (auto ch : *message)
                                  {

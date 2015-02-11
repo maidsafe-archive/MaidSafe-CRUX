@@ -783,7 +783,7 @@ void socket::process_handshake(sequence_type initial,
                      if (connect_handler)
                      {
                          connect_handler(error);
-                         connect_handler = 0;
+                         connect_handler = nullptr;
                      }
                  }
              });
@@ -801,7 +801,7 @@ void socket::process_handshake(sequence_type initial,
                  if (connect_handler)
                  {
                      connect_handler(error);
-                     connect_handler = 0;
+                     connect_handler = nullptr;
                  }
              });
         break;

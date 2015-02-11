@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
     if (argc <= 1)
         return 1;
 
-    auto server_port = std::stoi(argv[1]);
+    auto server_port = static_cast<unsigned short>(std::stoi(argv[1]));
 
     boost::asio::io_service io;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::udp::v4(), server_port);

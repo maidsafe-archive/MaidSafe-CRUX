@@ -176,8 +176,8 @@ void transmit_queue<Index>::start_step(typename entries_type::iterator entry_i) 
                    }
                    // FIXME: Period should be = 
                    //        max(0, entry->period - duration of this step)
-                   timer.set_period(entry->period);
-                   timer.start();
+                   this->timer.set_period(entry->period);
+                   this->timer.start();
                });
 }
 
