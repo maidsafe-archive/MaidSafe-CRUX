@@ -180,7 +180,7 @@ private:
 
     bool is_expected_packet(sequence_type seq);
 
-    void on_any_message_received();
+    void on_any_packet_received();
     void idempotent_start_receive() override;
     void idempotent_stop_receive();
     void on_keepalive_timeout();
@@ -282,7 +282,7 @@ inline void socket::idempotent_start_receive() {
     keepalive_timer.start();
 }
 
-inline void socket::on_any_message_received() {
+inline void socket::on_any_packet_received() {
     is_receiving = false;
     keepalive_timer.stop();
 }
@@ -616,7 +616,7 @@ void socket::process_data(const boost::system::error_code& error,
                           std::shared_ptr<detail::buffer> payload,
                           sequence_type sequence_number)
 {
-    on_any_message_received();
+    on_any_packet_received();
 
     if (!is_expected_packet(sequence_number)) {
         // We were receiving, so we need to continue to do so.
@@ -661,7 +661,7 @@ void socket::process_data(const boost::system::error_code& error,
 
 inline
 void socket::process_keepalive(sequence_type sequence_number) {
-    on_any_message_received();
+    on_any_packet_received();
 
     if (!is_expected_packet(sequence_number)) {
         idempotent_start_receive();
@@ -758,7 +758,7 @@ inline
 void socket::process_handshake(sequence_type initial,
                                endpoint_type remote_endpoint)
 {
-    on_any_message_received();
+    on_any_packet_received();
 
     sequence_history.insert(initial);
 
