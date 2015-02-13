@@ -241,6 +241,7 @@ void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
          [handler, header] (boost::system::error_code error, std::size_t length) mutable
          {
              assert(length == header->size());
+             static_cast<void>(length);
              handler(error);
          });
 }
@@ -262,6 +263,7 @@ void multiplexer::send_keepalive(const endpoint_type& remote_endpoint,
          [handler, header] (boost::system::error_code error, std::size_t length) mutable
          {
              assert(length == header->size());
+             static_cast<void>(length);
              handler(error);
          });
 }

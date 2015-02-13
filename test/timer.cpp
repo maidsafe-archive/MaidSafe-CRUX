@@ -151,7 +151,6 @@ BOOST_AUTO_TEST_CASE(timer_fast_forward)
     ios.run();
 
     auto test_duration     = end_time - start_time;
-    auto required_duration = milliseconds(0);
 
     BOOST_REQUIRE_LE(test_duration, milliseconds(10));
 }
@@ -181,7 +180,6 @@ BOOST_AUTO_TEST_CASE(timer_start_and_fast_forward)
     ios.run();
 
     auto test_duration     = end_time - start_time;
-    auto required_duration = milliseconds(0);
 
     BOOST_REQUIRE_LE(test_duration, milliseconds(10));
 }
@@ -220,10 +218,7 @@ BOOST_AUTO_TEST_CASE(timer_start_then_fast_forward)
     ios.run();
 
     auto test_duration     = end_time - start_time;
-    auto required_duration = milliseconds(0);
 
     BOOST_REQUIRE(was_called_twice);
     BOOST_REQUIRE_LE(abs(test_duration - milliseconds(100)), milliseconds(10));
 }
-
-

@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 
                      unsigned char output[64];
                      auto length = socket.async_receive(boost::asio::buffer(output), yield);
-                     for (auto i = 0; i < length; ++i)
+                     for (auto i = 0; i < static_cast<int>(length); ++i)
                      {
                          std::cout << output[i];
                      }
