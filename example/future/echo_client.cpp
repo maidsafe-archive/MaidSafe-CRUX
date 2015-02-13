@@ -35,9 +35,9 @@ void send_packets(boost::asio::io_service& io,
 
             unsigned char output[64];
             auto length = socket.async_receive(boost::asio::buffer(output), boost::asio::use_future).get();
-            for (auto i = 0; i < static_cast<int>(length); ++i)
+            for (auto j = 0u; j < length; ++j)
             {
-                std::cout << output[i];
+                std::cout << output[j];
             }
             std::cout << std::endl;
         }
