@@ -154,7 +154,7 @@ void transmit_queue<Index>::push( index_type        index
 
     auto& entry       = *insert_result.first->second;
     entry.buffer_size = buffer_size;
-    entry.period      = constant::retransmission_period;
+    entry.period      = constant::initial_roundtrip_time;
     entry.step        = std::move(step);
     entry.handler     = std::move(handler);
 
