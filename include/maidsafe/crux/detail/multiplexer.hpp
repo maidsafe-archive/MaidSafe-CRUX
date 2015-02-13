@@ -352,6 +352,11 @@ void multiplexer::process_peek(boost::system::error_code error,
     case 0:
         // Continue below
         break;
+#if defined(BOOST_ASIO_WINDOWS)
+    case ERROR_MORE_DATA:
+        // Continue below
+        break;
+#endif // defined(BOOST_ASIO_WINDOWS)
 
     case boost::asio::error::operation_aborted:
         return;
