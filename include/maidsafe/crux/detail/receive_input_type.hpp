@@ -12,7 +12,6 @@
 #define MAIDSAFE_CRUX_DETAIL_RECEIVE_INPUT_TYPE_HPP
 
 #include <maidsafe/crux/detail/buffer.hpp>
-#include <maidsafe/crux/detail/header.hpp>
 
 namespace maidsafe { namespace crux { namespace detail {
 

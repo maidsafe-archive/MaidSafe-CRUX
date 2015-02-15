@@ -11,6 +11,7 @@
 #include <string>
 #include <functional>
 #include <thread>
+#include <iostream>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/use_future.hpp>
 #include <maidsafe/crux/socket.hpp>
@@ -34,9 +35,9 @@ void send_packets(boost::asio::io_service& io,
 
             unsigned char output[64];
             auto length = socket.async_receive(boost::asio::buffer(output), boost::asio::use_future).get();
-            for (auto i = 0; i < length; ++i)
+            for (auto j = 0u; j < length; ++j)
             {
-                std::cout << output[i];
+                std::cout << output[j];
             }
             std::cout << std::endl;
         }

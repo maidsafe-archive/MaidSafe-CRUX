@@ -143,6 +143,7 @@ void acceptor::process_accept(const boost::system::error_code& error,
     handler(error);
 }
 
+inline
 acceptor::endpoint_type acceptor::local_endpoint() const
 {
     assert(multiplexer);
