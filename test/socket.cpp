@@ -54,6 +54,94 @@ BOOST_AUTO_TEST_CASE(accept___connect)
     BOOST_REQUIRE(tested_client && tested_server);
 }
 
+BOOST_AUTO_TEST_CASE(destroy_acceptor)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket   socket(ios);
+    std::unique_ptr<crux::acceptor> acceptor(
+            new crux::acceptor(ios, endpoint_type(udp::v4(), 0)));
+
+    bool tested_accept = false;
+
+    acceptor->async_accept(socket,
+            [&](error_code error) {
+              BOOST_VERIFY(error);
+              tested_accept = true;
+            });
+
+    asio::steady_timer timer(ios);
+    timer.expires_from_now(std::chrono::milliseconds(100));
+    timer.async_wait([&](error_code) {
+            acceptor.reset();
+            });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_accept);
+}
+
+BOOST_AUTO_TEST_CASE(destroy_sockets)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    std::unique_ptr<crux::socket> client_socket(new crux::socket(ios, endpoint_type(udp::v4(), 0)));
+    std::unique_ptr<crux::socket> server_socket(new crux::socket(ios));
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    bool tested_client = false;
+    bool tested_server = false;
+
+    int timer_counter = 2;
+    asio::steady_timer timer(ios);
+
+    auto schedule_sockets_close = [&]() {
+        timer.expires_from_now(std::chrono::milliseconds(100));
+        timer.async_wait([&](error_code) {
+                client_socket.reset();
+                server_socket.reset();
+                });
+    };
+
+    acceptor.async_accept(*server_socket,
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+              server_socket->async_receive(asio::null_buffers(),
+                  [&](error_code error, std::size_t) {
+                    tested_server = true;
+                  });
+
+              if (--timer_counter == 0) {
+                  schedule_sockets_close();
+              }
+            });
+
+    client_socket->async_connect(
+            acceptor.local_endpoint(),
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+              client_socket->async_receive(asio::null_buffers(),
+                  [&](error_code error, std::size_t) {
+                    tested_client = true;
+                  });
+
+              if (--timer_counter == 0) {
+                  schedule_sockets_close();
+              }
+            });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_client && tested_server);
+}
+
 BOOST_AUTO_TEST_CASE(accept_receive___connect_send)
 {
     using namespace maidsafe;

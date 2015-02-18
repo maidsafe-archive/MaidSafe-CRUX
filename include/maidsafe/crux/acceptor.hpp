@@ -42,6 +42,8 @@ public:
 
     endpoint_type local_endpoint() const;
 
+    ~acceptor();
+
 private:
     template <typename Handler,
               typename ErrorCode>
@@ -76,6 +78,12 @@ inline acceptor::acceptor(boost::asio::io_service& io,
 {
 }
 
+inline acceptor::~acceptor()
+{
+    if (!multiplexer) return;
+    multiplexer->disable_accept_requests_from(this);
+}
+
 template <typename CompletionToken>
 typename boost::asio::async_result<
     typename boost::asio::handler_type<CompletionToken,
@@ -102,7 +110,7 @@ acceptor::async_accept(socket_type& socket,
             socket.state(socket_type::connectivity::listening);
             socket.set_multiplexer(multiplexer);
             multiplexer->async_accept
-                (socket,
+                (this, socket,
                  [this, &socket, handler]
                  (const boost::system::error_code& error)
                  {
