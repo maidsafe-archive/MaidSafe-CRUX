@@ -127,6 +127,8 @@ private:
         return udp_socket.get_io_service();
     }
 
+    endpoint_type local_loopback_endpoint() const;
+
 private:
     next_layer_type udp_socket;
 
@@ -226,12 +228,12 @@ void multiplexer::disable_accept_requests_from(acceptor* accept) {
     while (i != acceptor_queue.end()) {
         if (std::get<0>(**i) == accept) {
             auto socket  = std::get<1>(**i);
-            socket->close();
             auto handler = std::move(std::get<2>(**i));
             get_io_service().post([handler]() {
                     handler(boost::asio::error::operation_aborted);
                     });
             stop_receive();
+            socket->close();
             acceptor_queue.erase(i++);
         }
         else {
@@ -314,6 +316,18 @@ void multiplexer::send_data(ConstBufferSequence&& buffers,
         });
 }
 
+inline multiplexer::endpoint_type multiplexer::local_loopback_endpoint() const {
+    namespace ip = boost::asio::ip;
+    auto local = next_layer().local_endpoint();
+
+    if (local.address().is_v4()) {
+        return endpoint_type(ip::address_v4::loopback(), local.port());
+    }
+    else {
+        return endpoint_type(ip::address_v6::loopback(), local.port());
+    }
+}
+
 inline void multiplexer::start_receive()
 {
     // Each socket may invoke only one receive call at a time.
@@ -337,7 +351,15 @@ inline void multiplexer::stop_receive()
 
     if (--receive_calls == 0)
     {
-        next_layer().close();
+        // The fact that we're here means that the last socket that
+        // was receiving just got closed. To prevent the io_service
+        // from blocking, we fulfill the last receive request by
+        // sending ourself an empty packet.
+        auto self = shared_from_this();
+        next_layer().async_send_to
+            ( boost::asio::buffer("", 0)
+            , local_loopback_endpoint()
+            , [self](boost::system::error_code, std::size_t) {});
     }
 }
 
@@ -365,6 +387,9 @@ void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
     if (!next_layer().is_open()) return;
+    if (remote_endpoint == local_loopback_endpoint() && receive_calls == 0) {
+        return;
+    }
 
     assert(receive_calls <= static_cast<decltype(receive_calls)>
                             (sockets.size() + acceptor_queue.size()));

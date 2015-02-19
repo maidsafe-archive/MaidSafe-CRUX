@@ -379,6 +379,75 @@ BOOST_AUTO_TEST_CASE(accept_receive_send___connect_send_receive)
     ios.run();
 }
 
+BOOST_AUTO_TEST_CASE(accept___close)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    bool tested = false;
+
+    acceptor.async_accept(server_socket, [&](error_code error) {
+            BOOST_VERIFY(error);
+            tested = true;
+            });
+
+    ios.post([&]() {
+        acceptor.close();
+        });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested);
+}
+
+BOOST_AUTO_TEST_CASE(accept_accept_close___connect)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    bool tested_client = false;
+    bool tested_server = false;
+
+    acceptor.async_accept(server_socket, [&](error_code error) {
+            BOOST_VERIFY(!error);
+
+            auto s2 = std::make_shared<crux::socket>(ios);
+
+            acceptor.async_accept(*s2, [s2, &tested_server](error_code error) {
+                BOOST_VERIFY(error);
+                tested_server = true;
+                });
+
+            ios.post([&]() {
+                acceptor.close();
+                });
+            });
+
+    client_socket.async_connect(
+            acceptor.local_endpoint(),
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+              tested_client = true;
+           });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_client && tested_server);
+}
+
 // FIXME: At time of writing this comment we don't yet support
 // 'close' packets, so the only way to detect disconnection is
 // through keepalive timeouts. When 'close' packets are added
