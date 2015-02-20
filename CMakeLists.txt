@@ -36,7 +36,7 @@ add_definitions(-std=c++11)
 # FIXME: Probably ok to use older version
 find_package(Boost 1.54.0 COMPONENTS coroutine context system thread unit_test_framework)
 if (NOT ${Boost_FOUND})
-  message(FATAL_ERROR "Boost not found (or too old)")
+  message(FATAL_ERROR "${Boost_ERROR_REASON}\nNote on Windows you must stage Boost like this for cmake to find it:\n    b2 link=shared stage\nAnd set the environment variable BOOST_ROOT to the base of your Boost installation.")
 endif()
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
