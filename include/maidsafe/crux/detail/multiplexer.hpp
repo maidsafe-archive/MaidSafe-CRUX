@@ -129,6 +129,8 @@ private:
 
     endpoint_type local_loopback_endpoint() const;
 
+    void discard_message();
+
 private:
     next_layer_type udp_socket;
 
@@ -357,7 +359,7 @@ inline void multiplexer::stop_receive()
         // sending ourself an empty packet.
         auto self = shared_from_this();
         next_layer().async_send_to
-            ( boost::asio::buffer("", 0)
+            ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
             , local_loopback_endpoint()
             , [self](boost::system::error_code, std::size_t) {});
     }
@@ -382,20 +384,30 @@ inline void multiplexer::do_start_receive()
          });
 }
 
+inline void multiplexer::discard_message() {
+    boost::system::error_code error;
+    endpoint_type remote_endpoint;
+    next_layer().receive_from
+        ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
+        , remote_endpoint, next_layer_type::message_flags(), error );
+}
+
 inline
 void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
+    namespace asio = boost::asio;
+
     if (!next_layer().is_open()) return;
+
     if (remote_endpoint == local_loopback_endpoint() && receive_calls == 0) {
+        discard_message();
         return;
     }
 
     assert(receive_calls <= static_cast<decltype(receive_calls)>
                             (sockets.size() + acceptor_queue.size()));
     assert(receive_calls > 0);
-
-    namespace asio = boost::asio;
 
     switch (error.value())
     {
@@ -409,6 +421,7 @@ void multiplexer::process_peek(boost::system::error_code error,
 #endif // defined(BOOST_ASIO_WINDOWS)
 
     case boost::asio::error::operation_aborted:
+        discard_message();
         --receive_calls;
         return;
 
@@ -416,6 +429,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         // Since we're here a socket must have been receiving
         // and its receive request must be fulfilled, so we
         // must start receiving again.
+        discard_message();
         do_start_receive();
         return;
     }
@@ -428,6 +442,7 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     if (datagram_size < header_size) {
         // Corrupted packet or someone is being silly.
+        discard_message();
         do_start_receive();
         return;
     }

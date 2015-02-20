@@ -194,6 +194,60 @@ BOOST_AUTO_TEST_CASE(accept_receive___connect_send)
     BOOST_REQUIRE(tested_receive && tested_send);
 }
 
+BOOST_AUTO_TEST_CASE(accept_post_receive___connect_send)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    const std::string message_text = "TEST_MESSAGE";
+    std::vector<char>  rx_data(message_text.size());
+    std::vector<char>  tx_data(message_text.begin(), message_text.end());
+
+    bool tested_receive = false;
+    bool tested_send    = false;
+
+    acceptor.async_accept(server_socket, [&](error_code error) {
+            BOOST_VERIFY(!error);
+
+            ios.post([&]() {
+                server_socket.async_receive(
+                    asio::buffer(rx_data),
+                    [&](const error_code& error, size_t size) {
+                      BOOST_VERIFY(!error);
+                      BOOST_REQUIRE_EQUAL(size, tx_data.size());
+                      BOOST_REQUIRE_EQUAL(to_string(rx_data), to_string(tx_data));
+
+                      tested_receive = true;
+                    });
+                });
+            });
+
+    client_socket.async_connect(
+            acceptor.local_endpoint(),
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+
+              client_socket.async_send(asio::buffer(tx_data),
+                  [&](error_code error, size_t size) {
+                    BOOST_REQUIRE(!error);
+                    BOOST_REQUIRE_EQUAL(size, tx_data.size());
+
+                    tested_send = true;
+                  });
+            });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_receive && tested_send);
+}
+
 BOOST_AUTO_TEST_CASE(accept_send___connect_receive)
 {
     using namespace maidsafe;
