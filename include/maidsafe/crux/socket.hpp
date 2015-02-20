@@ -129,7 +129,7 @@ private:
                         , std::size_t                      bytes_received
                         , read_handler_type&&              handler);
 
-    void process_keepalive(sequence_type);
+    void process_keepalive(sequence_type) override;
 
     template <typename Handler>
     void send_handshake(endpoint_type remote_endpoint,
