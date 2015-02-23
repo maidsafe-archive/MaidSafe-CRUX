@@ -274,7 +274,6 @@ BOOST_AUTO_TEST_CASE(custom_long_distances)
 BOOST_AUTO_TEST_CASE(custom4_short_distances)
 {
     using T = std::uint16_t;
-    using difference_type = sequence_number<T>::difference_type;
     BOOST_STATIC_CONSTEXPR T max = boost::integer_traits<T>::const_max / (1 << 4);
     sequence_number<T, max> zero(0);
     sequence_number<T, max> one(1);
