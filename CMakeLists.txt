@@ -48,6 +48,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     # Asio uses an outdated check for std::array, which fails to detect support
     # of std::array in clang 3.5 with libstdc++
     add_definitions(-DBOOST_ASIO_HAS_STD_ARRAY=1)
+    add_definitions(-DBOOST_ASIO_HAS_STD_CHRONO=1)
   elseif(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 3.4.0)
     add_definitions(-DBOOST_ASIO_HAS_STD_ARRAY=1)
     add_definitions(-DBOOST_ASIO_HAS_STD_CHRONO=1)
