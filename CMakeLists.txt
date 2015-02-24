@@ -43,8 +43,9 @@ if (NOT ${Boost_FOUND})
   message(FATAL_ERROR "${Boost_ERROR_REASON}\nNote on Windows you must stage Boost like this for cmake to find it:\n    b2 link=shared stage\nAnd set the environment variable BOOST_ROOT to the base of your Boost installation.")
 endif()
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIBRARY_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
-set(TEST_LIBS ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_LIBRARIES})
+set(TEST_LIBS ${Boost_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 
 # Workaround
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -82,5 +83,3 @@ add_library(crux STATIC
 
 add_subdirectory(test)
 add_subdirectory(example)
-
-link_directories(${Boost_LIBRARY_DIR})
