@@ -45,6 +45,9 @@ endif()
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
+if(MINGW)
+  set(EXTRA_LIBS ${EXTRA_LIBS} ws2_32)
+endif()
 set(TEST_LIBS ${Boost_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 
 # Workaround
