@@ -24,10 +24,14 @@ set(EXECUTABLE_OUTPUT_PATH ${CRUX_BUILD_DIR}/bin)
 if (CMAKE_COMPILER_IS_GNUCXX)
   set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g -Wall")
 endif()
-add_definitions(-g)
-add_definitions(-std=c++11)
 #add_definitions(-fmax-errors=1) # gcc
 #add_definitions(-ferror-limit=1) # clang
+
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+if(COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
 
 ###############################################################################
 # Boost package
@@ -53,6 +57,10 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_definitions(-DBOOST_ASIO_HAS_STD_ARRAY=1)
     add_definitions(-DBOOST_ASIO_HAS_STD_CHRONO=1)
   endif()
+endif()
+
+if (WIN32)
+  add_definitions(/D_WIN32_WINNT=0x0501)
 endif()
 
 ###############################################################################
