@@ -47,6 +47,7 @@ link_directories(${Boost_LIBRARY_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
 set(TEST_LIBS ${Boost_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 if(MINGW)
+  set(EXTRA_LIBS ${EXTRA_LIBS} ws2_32)
   set(TEST_LIBS ${TEST_LIBS} ws2_32)
 endif()
 
