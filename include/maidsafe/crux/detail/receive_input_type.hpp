@@ -11,6 +11,8 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_RECEIVE_INPUT_TYPE_HPP
 #define MAIDSAFE_CRUX_DETAIL_RECEIVE_INPUT_TYPE_HPP
 
+#include <functional>
+#include <boost/asio/buffer.hpp>
 #include <maidsafe/crux/detail/buffer.hpp>
 
 namespace maidsafe { namespace crux { namespace detail {

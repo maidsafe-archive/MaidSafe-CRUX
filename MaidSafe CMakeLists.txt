@@ -63,7 +63,7 @@ ms_add_executable(async_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/exampl
 target_link_libraries(async_echo_client maidsafe_crux)
 
 ms_add_executable(coroutine_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/coroutine/echo_client.cpp)
-target_link_libraries(coroutine_echo_client maidsafe_crux)
+target_link_libraries(coroutine_echo_client maidsafe_crux ${BoostCoroutineLibs} ${BoostContextLibs})
 
 ms_add_executable(future_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/future/echo_client.cpp)
 target_link_libraries(future_echo_client maidsafe_crux)
@@ -87,7 +87,8 @@ include(standard_flags)
 # Tests                                                                                            #
 #==================================================================================================#
 if(INCLUDE_TESTS)
-  ms_add_default_tests()
+  ms_add_test_for_multiple_definition_errors()
+  ms_add_project_experimental()
   add_test(NAME AllCruxTests COMMAND $<TARGET_FILE:test_crux>)
   set_property(TEST AllCruxTests PROPERTY LABELS Crux ${TASK_LABEL})
   set(AllCruxTestsTimeout 60)  # seconds
