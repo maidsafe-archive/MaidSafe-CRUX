@@ -11,6 +11,7 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_SEQUENCE_NUMBER_HPP
 #define MAIDSAFE_CRUX_DETAIL_SEQUENCE_NUMBER_HPP
 
+#include <stdexcept>
 #include <type_traits>
 #include <boost/config.hpp>
 #include <boost/integer_traits.hpp>

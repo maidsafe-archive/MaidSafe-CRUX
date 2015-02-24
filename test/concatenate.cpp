@@ -24,11 +24,11 @@ std::string to_string(const std::array<char, N>& v) {
 
 BOOST_AUTO_TEST_CASE(concatenate_const_const)
 {
-    const std::array<char, 10> a10{};
-    const std::array<char, 20> a20{};
+    const std::array<char, 5>  a5 {'a', 'b', 'c', 'd', 'e' };
+    const std::array<char, 10> a10{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j' };
 
-    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
-                                                           , asio::buffer(a20));
+    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a5)
+                                                           , asio::buffer(a10));
 
     std::size_t size = 0;
 
@@ -39,14 +39,14 @@ BOOST_AUTO_TEST_CASE(concatenate_const_const)
 
     BOOST_REQUIRE_EQUAL(2, size);
 
-    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
+    BOOST_REQUIRE_EQUAL( a5.size() + a10.size()
                        , asio::buffer_size(concatenated));
 }
 
 BOOST_AUTO_TEST_CASE(concatenate_const_mutable)
 {
-    const std::array<char, 10> a10{};
-    std::array<char, 20> a20{};
+    const std::array<char, 10> a10{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j' };
+    std::array<char, 20> a20;
 
     auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
                                                            , asio::buffer(a20));
@@ -66,11 +66,11 @@ BOOST_AUTO_TEST_CASE(concatenate_const_mutable)
 
 BOOST_AUTO_TEST_CASE(concatenate_mutable_const)
 {
-    std::array<char, 10> a10{};
-    const std::array<char, 20> a20{};
+    std::array<char, 5> a5;
+    const std::array<char, 10> a10 = {'0','1','2','3','4','5','6','7','8','9'};
 
-    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
-                                                           , asio::buffer(a20));
+    auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a5)
+                                                           , asio::buffer(a10));
 
     std::size_t size = 0;
 
@@ -81,14 +81,14 @@ BOOST_AUTO_TEST_CASE(concatenate_mutable_const)
 
     BOOST_REQUIRE_EQUAL(2, size);
 
-    BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
+    BOOST_REQUIRE_EQUAL( a5.size() + a10.size()
                        , asio::buffer_size(concatenated));
 }
 
 BOOST_AUTO_TEST_CASE(concatenate_mutable_mutable)
 {
-    std::array<char, 10> a10{};
-    std::array<char, 20> a20{};
+    std::array<char, 10> a10;
+    std::array<char, 20> a20;
 
     auto concatenated = maidsafe::crux::detail::concatenate( asio::buffer(a10)
                                                            , asio::buffer(a20));
