@@ -24,10 +24,14 @@ set(EXECUTABLE_OUTPUT_PATH ${CRUX_BUILD_DIR}/bin)
 if (CMAKE_COMPILER_IS_GNUCXX)
   set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g -Wall")
 endif()
-add_definitions(-g)
-add_definitions(-std=c++11)
 #add_definitions(-fmax-errors=1) # gcc
 #add_definitions(-ferror-limit=1) # clang
+
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+if(COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
 
 ###############################################################################
 # Boost package
@@ -36,11 +40,16 @@ add_definitions(-std=c++11)
 # FIXME: Probably ok to use older version
 find_package(Boost 1.54.0 COMPONENTS coroutine context system thread unit_test_framework)
 if (NOT ${Boost_FOUND})
-  message(FATAL_ERROR "Boost not found (or too old)")
+  message(FATAL_ERROR "${Boost_ERROR_REASON}\nNote on Windows you must stage Boost like this for cmake to find it:\n    b2 link=shared stage\nAnd set the environment variable BOOST_ROOT to the base of your Boost installation.")
 endif()
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIBRARY_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
-set(TEST_LIBS ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_LIBRARIES})
+set(TEST_LIBS ${Boost_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+if(MINGW)
+  set(EXTRA_LIBS ${EXTRA_LIBS} ws2_32)
+  set(TEST_LIBS ${TEST_LIBS} ws2_32)
+endif()
 
 # Workaround
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -53,6 +62,10 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_definitions(-DBOOST_ASIO_HAS_STD_ARRAY=1)
     add_definitions(-DBOOST_ASIO_HAS_STD_CHRONO=1)
   endif()
+endif()
+
+if (WIN32)
+  add_definitions(/D_WIN32_WINNT=0x0501)
 endif()
 
 ###############################################################################
