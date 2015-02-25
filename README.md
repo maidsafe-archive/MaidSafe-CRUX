@@ -7,7 +7,7 @@ CRUX (Connected Reliable Udp eXchange) is a reliable UDP protocol.
 
 Maidsafe-CRUX is an implementation of CRUX for [Boost.Asio](http://www.boost.org/doc/libs/release/libs/asio/).
 
-Jenkins CI status (blue is pass, yellow is failing unit tests, red is build failure):
+<center><small><b><u>Jenkins CI status (blue is pass, yellow is failing unit tests, red is build failure):</u></b></small></center>
 
 <html><body><table id="configuration-matrix" width="100%" border="1">
   <tr>
