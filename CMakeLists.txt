@@ -37,8 +37,19 @@ endif()
 # Boost package
 ###############################################################################
 
+set(Boost_COMPONENTS coroutine context system thread)
+
+# If on Windows, rather than be annoyed by constant failure to find DLL errors
+# during test debugging simply force all static linking of Boost libraries
+if(WIN32)
+  set(Boost_USE_STATIC_LIBS ON)
+else()
+  set(Boost_COMPONENTS "${Boost_COMPONENTS} unit_test_framework")
+  add_definitions (-DBOOST_TEST_DYN_LINK=1)
+endif()
+
 # FIXME: Probably ok to use older version
-find_package(Boost 1.54.0 COMPONENTS coroutine context system thread unit_test_framework)
+find_package(Boost 1.54.0 COMPONENTS ${Boost_COMPONENTS})
 if (NOT ${Boost_FOUND})
   message(FATAL_ERROR "${Boost_ERROR_REASON}\nNote on Windows you must stage Boost like this for cmake to find it:\n    b2 link=shared stage\nAnd set the environment variable BOOST_ROOT to the base of your Boost installation.")
 endif()

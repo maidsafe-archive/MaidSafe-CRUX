@@ -76,7 +76,11 @@ BOOST_AUTO_TEST_CASE(timer_start_stop)
 
     BOOST_REQUIRE_EQUAL(tick_count, required_tick_count);
 
+#ifdef WIN32
+    BOOST_REQUIRE_LE(abs(test_duration - required_duration), milliseconds(16*required_tick_count));
+#else
     BOOST_REQUIRE_LE(abs(test_duration - required_duration), milliseconds(10));
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(timer_start_restart)
@@ -124,7 +128,11 @@ BOOST_AUTO_TEST_CASE(timer_start_restart)
     auto required_duration = period_duration * (stop1_tick_count + stop2_tick_count);
 
     BOOST_REQUIRE_EQUAL(tick_count, stop1_tick_count + stop2_tick_count);
+#ifdef WIN32
+    BOOST_REQUIRE_LE(abs(test_duration - required_duration), milliseconds(16*(stop1_tick_count + stop2_tick_count)));
+#else
     BOOST_REQUIRE_LE(abs(test_duration - required_duration), milliseconds(10));
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(timer_fast_forward)

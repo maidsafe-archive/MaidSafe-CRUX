@@ -25,9 +25,6 @@ add_executable(crux_test
   sequence_number.cpp
   socket.cpp
 )
-if(NOT MINGW)
-  add_definitions (-DBOOST_TEST_DYN_LINK)
-endif()
 add_dependencies(crux_test crux)
 target_link_libraries(crux_test crux ${TEST_LIBS})
 
