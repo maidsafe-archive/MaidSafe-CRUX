@@ -44,11 +44,16 @@ if (NOT ${Boost_FOUND})
 endif()
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})
-set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES} pthread)
-set(TEST_LIBS ${Boost_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} pthread)
+set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
+set(TEST_LIBS ${Boost_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 if(MINGW)
   set(EXTRA_LIBS ${EXTRA_LIBS} ws2_32)
   set(TEST_LIBS ${TEST_LIBS} ws2_32)
+endif()
+# BSD doesn't link pthread by default, so make it explicit
+if(NOT WIN32)
+  set(EXTRA_LIBS ${EXTRA_LIBS} pthread)
+  set(TEST_LIBS ${TEST_LIBS} pthread)
 endif()
 
 # Workaround
