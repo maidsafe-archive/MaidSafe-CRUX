@@ -66,7 +66,7 @@ public:
     template <typename AcceptorType,
               typename SocketType,
               typename AcceptHandler>
-    void async_accept(AcceptorType*,
+    void async_accept(AcceptorType&,
                       SocketType&,
                       AcceptHandler&& handler);
 
@@ -99,7 +99,7 @@ public:
     next_layer_type& next_layer();
     const next_layer_type& next_layer() const;
 
-    void disable_accept_requests_from(acceptor*);
+    void disable_accept_requests_from(acceptor&);
 
 private:
     multiplexer(next_layer_type&& udp_socket);
@@ -211,11 +211,11 @@ inline void multiplexer::remove(socket_base *socket)
 template <typename AcceptorType,
           typename SocketType,
           typename AcceptHandler>
-void multiplexer::async_accept(AcceptorType* acceptor,
+void multiplexer::async_accept(AcceptorType& acceptor,
                                SocketType& socket,
                                AcceptHandler&& handler)
 {
-    std::unique_ptr<accept_input_type> operation(new accept_input_type(acceptor,
+    std::unique_ptr<accept_input_type> operation(new accept_input_type(&acceptor,
                                                                        &socket,
                                                                        std::move(handler)));
     acceptor_queue.emplace_back(std::move(operation));
@@ -224,11 +224,11 @@ void multiplexer::async_accept(AcceptorType* acceptor,
 }
 
 inline
-void multiplexer::disable_accept_requests_from(acceptor* accept) {
+void multiplexer::disable_accept_requests_from(acceptor& accept) {
     auto i = acceptor_queue.begin();
 
     while (i != acceptor_queue.end()) {
-        if (std::get<0>(**i) == accept) {
+        if (std::get<0>(**i) == &accept) {
             auto socket  = std::get<1>(**i);
             auto handler = std::move(std::get<2>(**i));
             get_io_service().post([handler]() {

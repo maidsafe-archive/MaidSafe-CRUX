@@ -87,7 +87,7 @@ inline acceptor::~acceptor()
 
 inline void acceptor::close() {
     if (!multiplexer) return;
-    multiplexer->disable_accept_requests_from(this);
+    multiplexer->disable_accept_requests_from(*this);
 }
 
 template <typename CompletionToken>
@@ -116,7 +116,7 @@ acceptor::async_accept(socket_type& socket,
             socket.state(socket_type::connectivity::listening);
             socket.set_multiplexer(multiplexer);
             multiplexer->async_accept
-                (this, socket,
+                (*this, socket,
                  [this, &socket, handler]
                  (const boost::system::error_code& error)
                  {
