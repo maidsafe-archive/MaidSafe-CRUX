@@ -44,7 +44,7 @@ set(Boost_COMPONENTS coroutine context system thread)
 if(WIN32)
   set(Boost_USE_STATIC_LIBS ON)
 else()
-  set(Boost_COMPONENTS "${Boost_COMPONENTS} unit_test_framework")
+  set(Boost_COMPONENTS ${Boost_COMPONENTS} unit_test_framework)
   add_definitions (-DBOOST_TEST_DYN_LINK=1)
 endif()
 
