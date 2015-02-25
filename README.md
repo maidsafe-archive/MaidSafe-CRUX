@@ -7,9 +7,10 @@ CRUX (Connected Reliable Udp eXchange) is a reliable UDP protocol.
 
 Maidsafe-CRUX is an implementation of CRUX for [Boost.Asio](http://www.boost.org/doc/libs/release/libs/asio/).
 
-<center><small><b><u>Jenkins CI status (blue is pass, yellow is failing unit tests, red is build failure):</u></b></small></center>
+<p align="center"><small><b><u>Jenkins CI status (blue is pass, yellow is failing unit tests, red is build failure):</u></b></small></p>
 
-<html><body><table id="configuration-matrix" width="100%" border="1">
+<center>
+<table id="configuration-matrix" width="100%" border="1">
   <tr>
     <td class="matrix-leftcolumn" rowspan="1" valign="top">g++-4.7</td>
   </tr>
@@ -40,4 +41,6 @@ Maidsafe-CRUX is an implementation of CRUX for [Boost.Asio](http://www.boost.org
   <tr>
     <td class="matrix-leftcolumn" rowspan="1" valign="top">mingw64</td><td class="matrix-cell"><div><a class="model-link inside" href="https://ci.nedprod.com/job/Maidsafe%20CRUX/CPPSTD=c++11,CXX=mingw64,LINKTYPE=shared,label=win8-msvc-mingw/"><img alt="Unstable" src="https://ci.nedprod.com/job/Maidsafe%20CRUX/CPPSTD=c++11,CXX=mingw64,LINKTYPE=shared,label=win8-msvc-mingw/badge/icon" tooltip="Unstable" align="top"/></a> win8-msvc-mingw</div></td>
   </tr>
-</table></body></html>
+</table>
+</center>
+
