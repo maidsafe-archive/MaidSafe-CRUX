@@ -77,8 +77,8 @@ sequence_number<NumericType, Max>::sequence_number(const sequence_number& other)
 }
 
 template<typename NumericType, NumericType Max>
-sequence_number<NumericType, Max>::sequence_number(NumericType n)
-    : n(n)
+sequence_number<NumericType, Max>::sequence_number(NumericType other_n)
+    : n(other_n)
 {
     if (n > max_value)
         throw std::runtime_error("invalid value");
