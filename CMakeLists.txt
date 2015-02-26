@@ -41,11 +41,13 @@ set(Boost_COMPONENTS coroutine context system thread)
 
 # If on Windows, rather than be annoyed by constant failure to find DLL errors
 # during test debugging simply force all static linking of Boost libraries
-if(WIN32)
+if(WIN32 AND NOT MINGW)
   set(Boost_USE_STATIC_LIBS ON)
 else()
   set(Boost_COMPONENTS ${Boost_COMPONENTS} unit_test_framework)
-  add_definitions (-DBOOST_TEST_DYN_LINK=1)
+  if(NOT MINGW)
+    add_definitions (-DBOOST_TEST_DYN_LINK=1)
+  endif()
 endif()
 
 # FIXME: Probably ok to use older version
