@@ -36,6 +36,7 @@ public:
 public:
     sequence_number();
     sequence_number(const sequence_number&);
+    sequence_number(sequence_number&&);
     explicit sequence_number(NumericType);
 
     sequence_number& operator=(const sequence_number&);
@@ -55,7 +56,7 @@ public:
     value_type value() const { return n; }
 
 private:
-    value_type n;
+    value_type n = 0;
 };
 
 }}} // namespace maidsafe::crux::detail
