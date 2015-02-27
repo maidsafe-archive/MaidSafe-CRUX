@@ -16,6 +16,7 @@
 #include <functional>
 #include <queue>
 #include <map>
+#include <list>
 #include <queue>
 #include <tuple>
 
@@ -32,6 +33,9 @@ namespace maidsafe
 {
 namespace crux
 {
+
+class acceptor;
+
 namespace detail
 {
 
@@ -59,9 +63,11 @@ public:
     void add(socket_base *);
     void remove(socket_base *);
 
-    template <typename SocketType,
+    template <typename AcceptorType,
+              typename SocketType,
               typename AcceptHandler>
-    void async_accept(SocketType&,
+    void async_accept(AcceptorType&,
+                      SocketType&,
                       AcceptHandler&& handler);
 
     template <typename ConstBufferSequence,
@@ -93,6 +99,8 @@ public:
     next_layer_type& next_layer();
     const next_layer_type& next_layer() const;
 
+    void disable_accept_requests_from(acceptor&);
+
 private:
     multiplexer(next_layer_type&& udp_socket);
 
@@ -113,13 +121,15 @@ private:
 
     template <typename AcceptHandler>
     void process_accept(const boost::system::error_code& error,
-                        socket_base *,
-                        const endpoint_type& remote_endpoint,
                         AcceptHandler&& handler);
 
     boost::asio::io_service& get_io_service() {
         return udp_socket.get_io_service();
     }
+
+    endpoint_type local_loopback_endpoint() const;
+
+    void discard_message();
 
 private:
     next_layer_type udp_socket;
@@ -127,17 +137,15 @@ private:
     using socket_map = std::map<endpoint_type, socket_base *>;
     socket_map sockets;
 
-    int receive_calls;
+    std::atomic<int> receive_calls;
 
     // FIXME: Move to acceptor class
     // FIXME: Bounded queue with pending accept requests? (like listen() backlog)
     using accept_handler_type = std::function<void (const boost::system::error_code&)>;
-    using accept_input_type = std::tuple<socket_base *, accept_handler_type>;
-    std::queue<std::unique_ptr<accept_input_type>> acceptor_queue;
+    using accept_input_type = std::tuple<acceptor*, socket_base *, accept_handler_type>;
+    std::list<std::unique_ptr<accept_input_type>> acceptor_queue;
 
     endpoint_type next_remote_endpoint;
-
-    bool was_closed;
 };
 
 } // namespace detail
@@ -170,13 +178,13 @@ std::shared_ptr<multiplexer> multiplexer::create(Types&&... args)
 inline multiplexer::multiplexer(next_layer_type&& udp_socket)
     : udp_socket(std::move(udp_socket))
     , receive_calls(0)
-    , was_closed(false)
 {
 }
 
 inline multiplexer::~multiplexer()
 {
     assert(sockets.empty());
+    assert(acceptor_queue.empty());
     assert(receive_calls == 0);
 
     // FIXME: Clean up
@@ -200,26 +208,44 @@ inline void multiplexer::remove(socket_base *socket)
     }
 }
 
-template <typename SocketType,
+template <typename AcceptorType,
+          typename SocketType,
           typename AcceptHandler>
-void multiplexer::async_accept(SocketType& socket,
+void multiplexer::async_accept(AcceptorType& acceptor,
+                               SocketType& socket,
                                AcceptHandler&& handler)
 {
-    std::unique_ptr<accept_input_type> operation(new accept_input_type(&socket,
+    std::unique_ptr<accept_input_type> operation(new accept_input_type(&acceptor,
+                                                                       &socket,
                                                                        std::move(handler)));
-    acceptor_queue.emplace(std::move(operation));
+    acceptor_queue.emplace_back(std::move(operation));
 
-    // We need to start receiving on this multiplexer through the
-    // socket's idempotent_start_receive method (and not through our
-    // start_receive one) to make the socket aware it has started
-    // receiving (as one socket may start only one receive at a time).
-    socket.idempotent_start_receive();
+    start_receive();
+}
+
+inline
+void multiplexer::disable_accept_requests_from(acceptor& accept) {
+    auto i = acceptor_queue.begin();
+
+    while (i != acceptor_queue.end()) {
+        if (std::get<0>(**i) == &accept) {
+            auto socket  = std::get<1>(**i);
+            auto handler = std::move(std::get<2>(**i));
+            get_io_service().post([handler]() {
+                    handler(boost::asio::error::operation_aborted);
+                    });
+            stop_receive();
+            socket->close();
+            acceptor_queue.erase(i++);
+        }
+        else {
+            ++i;
+        }
+    }
 }
 
 template <typename AcceptHandler>
 void multiplexer::process_accept(const boost::system::error_code& error,
-                                 socket_base* /*socket*/,
-                                 const endpoint_type& /*current_remote_endpoint*/,
                                  AcceptHandler&& handler)
 {
     handler(error);
@@ -292,11 +318,25 @@ void multiplexer::send_data(ConstBufferSequence&& buffers,
         });
 }
 
+inline multiplexer::endpoint_type multiplexer::local_loopback_endpoint() const {
+    namespace ip = boost::asio::ip;
+    auto local = next_layer().local_endpoint();
+
+    if (local.address().is_v4()) {
+        return endpoint_type(ip::address_v4::loopback(), local.port());
+    }
+    else {
+        return endpoint_type(ip::address_v6::loopback(), local.port());
+    }
+}
+
 inline void multiplexer::start_receive()
 {
     // Each socket may invoke only one receive call at a time.
+    // The + 1 is there because a socket might start receiving while
+    // executing the receive handler, thus the +1.
     assert(receive_calls < static_cast<decltype(receive_calls)>
-                           (sockets.size() + acceptor_queue.size()));
+                           (sockets.size() + acceptor_queue.size() + 1));
 
     if (receive_calls++ == 0)
     {
@@ -313,7 +353,15 @@ inline void multiplexer::stop_receive()
 
     if (--receive_calls == 0)
     {
-        was_closed = true;
+        // The fact that we're here means that the last socket that
+        // was receiving just got closed. To prevent the io_service
+        // from blocking, we fulfill the last receive request by
+        // sending ourself an empty packet.
+        auto self = shared_from_this();
+        next_layer().async_send_to
+            ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
+            , local_loopback_endpoint()
+            , [self](boost::system::error_code, std::size_t) {});
     }
 }
 
@@ -336,18 +384,30 @@ inline void multiplexer::do_start_receive()
          });
 }
 
+inline void multiplexer::discard_message() {
+    boost::system::error_code error;
+    endpoint_type remote_endpoint;
+    next_layer().receive_from
+        ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
+        , remote_endpoint, next_layer_type::message_flags(), error );
+}
+
 inline
 void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
-    if (was_closed) return;
+    namespace asio = boost::asio;
+
+    if (!next_layer().is_open()) return;
+
+    if (remote_endpoint == local_loopback_endpoint() && receive_calls == 0) {
+        discard_message();
+        return;
+    }
 
     assert(receive_calls <= static_cast<decltype(receive_calls)>
                             (sockets.size() + acceptor_queue.size()));
     assert(receive_calls > 0);
-    --receive_calls;
-
-    namespace asio = boost::asio;
 
     switch (error.value())
     {
@@ -361,10 +421,16 @@ void multiplexer::process_peek(boost::system::error_code error,
 #endif // defined(BOOST_ASIO_WINDOWS)
 
     case boost::asio::error::operation_aborted:
+        discard_message();
+        --receive_calls;
         return;
 
     default:
-        start_receive();
+        // Since we're here a socket must have been receiving
+        // and its receive request must be fulfilled, so we
+        // must start receiving again.
+        discard_message();
+        do_start_receive();
         return;
     }
 
@@ -376,11 +442,10 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     if (datagram_size < header_size) {
         // Corrupted packet or someone is being silly.
-        start_receive();
+        discard_message();
+        do_start_receive();
         return;
     }
-
-    auto old_receive_calls = receive_calls;
 
     header::data_type header_data;
     std::size_t payload_size = datagram_size - header_size;
@@ -439,12 +504,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         }
     }
 
-    // If the receive_calls member is non zero but
-    // old_receive_calls != receive_calls, that means that
-    // the socket which received this message must have
-    // initiated receiving already in one of its process_*
-    // methods.
-    if (old_receive_calls && old_receive_calls == receive_calls) {
+    if (--receive_calls > 0) {
         do_start_receive();
     }
 }
@@ -481,7 +541,7 @@ void multiplexer::establish_connection(std::size_t payload_size,
     }
 
     auto& input = acceptor_queue.front();
-    auto socket = std::get<0>(*input);
+    auto socket = std::get<1>(*input);
 
     detail::decoder decoder(header_data.data(), header_data.data() + header_data.size());
     auto type = decoder.get<std::uint16_t>();
@@ -508,11 +568,9 @@ void multiplexer::establish_connection(std::size_t payload_size,
     {
         boost::system::error_code success;
         auto input = std::move(acceptor_queue.front());
-        acceptor_queue.pop();
+        acceptor_queue.pop_front();
         process_accept(success,
-                       std::get<0>(*input),
-                       remote_endpoint,
-                       std::get<1>(*input));
+                       std::get<2>(*input));
     }
 }
 

@@ -101,7 +101,7 @@ public:
     // Get the local endpoint of the socket
     endpoint_type local_endpoint() const;
 
-    void close();
+    void close() override;
 
 private:
     friend class detail::multiplexer;
@@ -253,16 +253,16 @@ inline void socket::close() {
     transmit_queue.shutdown();
 
     while (!receive_input_queue.empty()) {
-        auto input = std::move(*receive_input_queue.front());
+        auto handler = std::move(receive_input_queue.front()->handler);
         receive_input_queue.pop();
 
-        get_io_service().post([input]() {
-                input.handler(boost::asio::error::operation_aborted, 0);
+        get_io_service().post([handler]() {
+                handler(boost::asio::error::operation_aborted, 0);
                 });
     }
 
-    idempotent_stop_receive();
     get_service().remove(local_endpoint());
+    idempotent_stop_receive();
     multiplexer->remove(this);
     multiplexer = 0;
 }
