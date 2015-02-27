@@ -36,6 +36,7 @@ public:
 public:
     sequence_number();
     sequence_number(const sequence_number&);
+    sequence_number(sequence_number&&);
     explicit sequence_number(NumericType);
 
     sequence_number& operator=(const sequence_number&);
@@ -55,7 +56,7 @@ public:
     value_type value() const { return n; }
 
 private:
-    value_type n;
+    value_type n = 0;
 };
 
 }}} // namespace maidsafe::crux::detail
@@ -77,8 +78,8 @@ sequence_number<NumericType, Max>::sequence_number(const sequence_number& other)
 }
 
 template<typename NumericType, NumericType Max>
-sequence_number<NumericType, Max>::sequence_number(NumericType n)
-    : n(n)
+sequence_number<NumericType, Max>::sequence_number(NumericType other_n)
+    : n(other_n)
 {
     if (n > max_value)
         throw std::runtime_error("invalid value");
