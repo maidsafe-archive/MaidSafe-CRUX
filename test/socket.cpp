@@ -54,6 +54,94 @@ BOOST_AUTO_TEST_CASE(accept___connect)
     BOOST_REQUIRE(tested_client && tested_server);
 }
 
+BOOST_AUTO_TEST_CASE(destroy_acceptor)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket   socket(ios);
+    std::unique_ptr<crux::acceptor> acceptor(
+            new crux::acceptor(ios, endpoint_type(udp::v4(), 0)));
+
+    bool tested_accept = false;
+
+    acceptor->async_accept(socket,
+            [&](error_code error) {
+              BOOST_VERIFY(error);
+              tested_accept = true;
+            });
+
+    asio::steady_timer timer(ios);
+    timer.expires_from_now(std::chrono::milliseconds(100));
+    timer.async_wait([&](error_code) {
+            acceptor.reset();
+            });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_accept);
+}
+
+BOOST_AUTO_TEST_CASE(destroy_sockets)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    std::unique_ptr<crux::socket> client_socket(new crux::socket(ios, endpoint_type(udp::v4(), 0)));
+    std::unique_ptr<crux::socket> server_socket(new crux::socket(ios));
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    bool tested_client = false;
+    bool tested_server = false;
+
+    int timer_counter = 2;
+    asio::steady_timer timer(ios);
+
+    auto schedule_sockets_close = [&]() {
+        timer.expires_from_now(std::chrono::milliseconds(100));
+        timer.async_wait([&](error_code) {
+                client_socket.reset();
+                server_socket.reset();
+                });
+    };
+
+    acceptor.async_accept(*server_socket,
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+              server_socket->async_receive(asio::null_buffers(),
+                  [&](error_code error, std::size_t) {
+                    tested_server = true;
+                  });
+
+              if (--timer_counter == 0) {
+                  schedule_sockets_close();
+              }
+            });
+
+    client_socket->async_connect(
+            acceptor.local_endpoint(),
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+              client_socket->async_receive(asio::null_buffers(),
+                  [&](error_code error, std::size_t) {
+                    tested_client = true;
+                  });
+
+              if (--timer_counter == 0) {
+                  schedule_sockets_close();
+              }
+            });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_client && tested_server);
+}
+
 BOOST_AUTO_TEST_CASE(accept_receive___connect_send)
 {
     using namespace maidsafe;
@@ -84,6 +172,60 @@ BOOST_AUTO_TEST_CASE(accept_receive___connect_send)
                   BOOST_REQUIRE_EQUAL(to_string(rx_data), to_string(tx_data));
 
                   tested_receive = true;
+                });
+            });
+
+    client_socket.async_connect(
+            acceptor.local_endpoint(),
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+
+              client_socket.async_send(asio::buffer(tx_data),
+                  [&](error_code error, size_t size) {
+                    BOOST_REQUIRE(!error);
+                    BOOST_REQUIRE_EQUAL(size, tx_data.size());
+
+                    tested_send = true;
+                  });
+            });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_receive && tested_send);
+}
+
+BOOST_AUTO_TEST_CASE(accept_post_receive___connect_send)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    const std::string message_text = "TEST_MESSAGE";
+    std::vector<char>  rx_data(message_text.size());
+    std::vector<char>  tx_data(message_text.begin(), message_text.end());
+
+    bool tested_receive = false;
+    bool tested_send    = false;
+
+    acceptor.async_accept(server_socket, [&](error_code error) {
+            BOOST_VERIFY(!error);
+
+            ios.post([&]() {
+                server_socket.async_receive(
+                    asio::buffer(rx_data),
+                    [&](const error_code& error, size_t size) {
+                      BOOST_VERIFY(!error);
+                      BOOST_REQUIRE_EQUAL(size, tx_data.size());
+                      BOOST_REQUIRE_EQUAL(to_string(rx_data), to_string(tx_data));
+
+                      tested_receive = true;
+                    });
                 });
             });
 
@@ -289,6 +431,75 @@ BOOST_AUTO_TEST_CASE(accept_receive_send___connect_send_receive)
            });
 
     ios.run();
+}
+
+BOOST_AUTO_TEST_CASE(accept___close)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    bool tested = false;
+
+    acceptor.async_accept(server_socket, [&](error_code error) {
+            BOOST_VERIFY(error);
+            tested = true;
+            });
+
+    ios.post([&]() {
+        acceptor.close();
+        });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested);
+}
+
+BOOST_AUTO_TEST_CASE(accept_accept_close___connect)
+{
+    using namespace maidsafe;
+    using udp = asio::ip::udp;
+
+    asio::io_service ios;
+
+    crux::socket client_socket(ios, endpoint_type(udp::v4(), 0));
+    crux::socket server_socket(ios);
+
+    crux::acceptor acceptor(ios, endpoint_type(udp::v4(), 0));
+
+    bool tested_client = false;
+    bool tested_server = false;
+
+    acceptor.async_accept(server_socket, [&](error_code error) {
+            BOOST_VERIFY(!error);
+
+            auto s2 = std::make_shared<crux::socket>(ios);
+
+            acceptor.async_accept(*s2, [s2, &tested_server](error_code error) {
+                BOOST_VERIFY(error);
+                tested_server = true;
+                });
+
+            ios.post([&]() {
+                acceptor.close();
+                });
+            });
+
+    client_socket.async_connect(
+            acceptor.local_endpoint(),
+            [&](error_code error) {
+              BOOST_VERIFY(!error);
+              tested_client = true;
+           });
+
+    ios.run();
+
+    BOOST_REQUIRE(tested_client && tested_server);
 }
 
 // FIXME: At time of writing this comment we don't yet support
