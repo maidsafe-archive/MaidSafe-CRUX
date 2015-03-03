@@ -11,6 +11,8 @@
 #ifndef MAIDSAFE_CRUX_ACCEPTOR_HPP
 #define MAIDSAFE_CRUX_ACCEPTOR_HPP
 
+#include <maidsafe/crux/detail/config.hpp>
+
 #include <memory>
 #include <boost/asio/io_service.hpp>
 #include <maidsafe/crux/detail/service.hpp>

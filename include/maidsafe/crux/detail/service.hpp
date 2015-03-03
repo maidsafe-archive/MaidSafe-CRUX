@@ -11,6 +11,8 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_SERVICE_HPP
 #define MAIDSAFE_CRUX_DETAIL_SERVICE_HPP
 
+#include <maidsafe/crux/detail/config.hpp>
+
 #include <memory>
 #include <map>
 #include <random>
@@ -25,13 +27,13 @@ namespace detail
 {
 class multiplexer;
 
-class service : public boost::asio::io_service::service
+class MAIDSAFE_CRUX_DECL service : public boost::asio::io_service::service
 {
     using endpoint_type = crux::endpoint;
     using multiplexer_map = std::map< endpoint_type, std::weak_ptr<detail::multiplexer> >;
 
 public:
-    static boost::asio::io_service::id id;
+    static MAIDSAFE_CRUX_DECL boost::asio::io_service::id id;
 
     explicit service(boost::asio::io_service& io);
 

@@ -11,6 +11,8 @@
 #ifndef MAIDSAFE_CRUX_RESOLVER_HPP
 #define MAIDSAFE_CRUX_RESOLVER_HPP
 
+#include <maidsafe/crux/detail/config.hpp>
+
 #include <boost/asio/ip/udp.hpp> // ip::udp::resolver
 #include <maidsafe/crux/endpoint.hpp>
 

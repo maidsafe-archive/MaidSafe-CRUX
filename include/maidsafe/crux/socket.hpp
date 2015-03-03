@@ -11,6 +11,8 @@
 #ifndef MAIDSAFE_CRUX_SOCKET_HPP
 #define MAIDSAFE_CRUX_SOCKET_HPP
 
+#include <maidsafe/crux/detail/config.hpp>
+
 #include <functional>
 #include <memory>
 #include <tuple>
