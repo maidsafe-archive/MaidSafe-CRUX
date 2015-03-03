@@ -14,6 +14,8 @@ project maidsafe/crux/test
       <library>../build//maidsafe_crux
       <toolset>gcc:<cxxflags>"-std=c++11 -fvisibility-inlines-hidden -fstrict-aliasing -Wall -Wextra -fvisibility=hidden -fasynchronous-unwind-tables -Wno-unused-variable -Wno-unused-parameter"
       <toolset>clang:<cxxflags>"-std=c++11 -fvisibility-inlines-hidden -fstrict-aliasing -Wall -Wextra -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fasynchronous-unwind-tables"
+      <toolset>clang:<define>BOOST_ASIO_HAS_STD_ARRAY=1
+      <toolset>clang:<define>BOOST_ASIO_HAS_STD_CHRONO=1
       <toolset>gcc-mingw:<cxxflags>"-Wno-missing-braces"
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
       <toolset>gcc-mingw:<define>WIN32 
