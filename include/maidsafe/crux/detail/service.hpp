@@ -33,7 +33,7 @@ class MAIDSAFE_CRUX_DECL service : public boost::asio::io_service::service
     using multiplexer_map = std::map< endpoint_type, std::weak_ptr<detail::multiplexer> >;
 
 public:
-    static MAIDSAFE_CRUX_DECL boost::asio::io_service::id id;
+    static boost::asio::io_service::id id;
 
     explicit service(boost::asio::io_service& io);
 
