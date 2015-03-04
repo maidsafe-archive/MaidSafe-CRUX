@@ -37,6 +37,9 @@ add_executable(coroutine_echo_client
 )
 add_dependencies(coroutine_echo_client crux)
 target_link_libraries(coroutine_echo_client crux ${EXTRA_LIBS})
+if(MSVC)
+  set_target_properties(coroutine_echo_client PROPERTIES LINK_FLAGS "${LINK_FLAGS} /SAFESEH:NO")
+endif()
 
 ###############################################################################
 # Future examples

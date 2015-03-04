@@ -37,8 +37,27 @@ endif()
 # Boost package
 ###############################################################################
 
-# FIXME: Probably ok to use older version
-find_package(Boost 1.54.0 COMPONENTS coroutine context system thread unit_test_framework)
+set(Boost_COMPONENTS chrono coroutine context system thread)
+
+# If on Windows, rather than be annoyed by constant failure to find DLL errors
+# during test debugging simply force all static linking of Boost libraries
+if(WIN32 AND NOT MINGW)
+  set(Boost_USE_STATIC_LIBS ON)
+else()
+  set(Boost_COMPONENTS ${Boost_COMPONENTS} unit_test_framework)
+  # Mingw doesn't like BOOST_TEST_DYN_LINK for some reason (it hasn't for years now)
+  if(NOT MINGW)
+    add_definitions (-DBOOST_TEST_DYN_LINK=1)
+  endif()
+endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+  # ASIO < 1.10.5 is broken on FreeBSD
+  find_package(Boost 1.57.0 COMPONENTS ${Boost_COMPONENTS})
+else()
+  # FIXME: Probably ok to use older version
+  find_package(Boost 1.54.0 COMPONENTS ${Boost_COMPONENTS})
+endif()
 if (NOT ${Boost_FOUND})
   message(FATAL_ERROR "${Boost_ERROR_REASON}\nNote on Windows you must stage Boost like this for cmake to find it:\n    b2 link=shared stage\nAnd set the environment variable BOOST_ROOT to the base of your Boost installation.")
 endif()
@@ -49,6 +68,12 @@ set(TEST_LIBS ${Boost_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 if(MINGW)
   set(EXTRA_LIBS ${EXTRA_LIBS} ws2_32)
   set(TEST_LIBS ${TEST_LIBS} ws2_32)
+endif()
+
+# FreeBSD needs you to link pthread (symlinks to the libthr 1:1 threading implementation) explicitly
+if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+  set(EXTRA_LIBS ${EXTRA_LIBS} pthread)
+  set(TEST_LIBS ${TEST_LIBS} pthread)
 endif()
 
 # Workaround
