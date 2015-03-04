@@ -22,7 +22,7 @@ project maidsafe/crux/test
       <toolset>gcc-mingw:<define>_WINDOWS  
       <toolset>gcc-mingw:<define>UNICODE 
       <toolset>gcc-mingw:<define>_UNICODE
-      <toolset>msvc:<cxxflags>"/GF /Gy"
+      <toolset>msvc:<cxxflags>"/GF /Gy /wd4251 /wd4275"  # No warnings about DLL export mismatches
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32 
       <toolset>msvc:<define>_WINDOWS  
@@ -44,9 +44,10 @@ test_files = [ glob *.cpp ] ;
 
 if "--link-test" in $(.argv)  
 {
-  link $(test_files) : : crux_test ;
+    link $(test_files) : : crux_test ;
 }
 else
 {
-  run $(test_files) : --log_format=XML --log_sink=results_crux_test.xml --log_level=all --report_level=no : : : crux_test ;
+  test-suite "crux" :
+    [ run $(test_files) : --log_format=XML --log_sink=results_crux_test.xml --log_level=all --report_level=no : : : crux_test ] ;
 }
