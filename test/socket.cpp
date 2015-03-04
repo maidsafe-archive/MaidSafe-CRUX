@@ -115,6 +115,7 @@ BOOST_AUTO_TEST_CASE(destroy_sockets)
               BOOST_VERIFY(!error);
               server_socket->async_receive(asio::null_buffers(),
                   [&](error_code error, std::size_t) {
+                    BOOST_VERIFY(error);
                     tested_server = true;
                   });
 
@@ -129,6 +130,7 @@ BOOST_AUTO_TEST_CASE(destroy_sockets)
               BOOST_VERIFY(!error);
               client_socket->async_receive(asio::null_buffers(),
                   [&](error_code error, std::size_t) {
+                    BOOST_VERIFY(error);
                     tested_client = true;
                   });
 

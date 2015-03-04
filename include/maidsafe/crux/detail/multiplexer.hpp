@@ -137,7 +137,7 @@ private:
     using socket_map = std::map<endpoint_type, socket_base *>;
     socket_map sockets;
 
-    std::atomic<int> receive_calls;
+    std::atomic<std::size_t> receive_calls;
 
     // FIXME: Move to acceptor class
     // FIXME: Bounded queue with pending accept requests? (like listen() backlog)
