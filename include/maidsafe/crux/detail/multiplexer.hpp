@@ -137,8 +137,7 @@ private:
     using socket_map = std::map<endpoint_type, socket_base *>;
     socket_map sockets;
 
-    using receive_calls_underlying_type = int;
-    std::atomic<receive_calls_underlying_type> receive_calls;
+    std::atomic<std::size_t> receive_calls;
 
     // FIXME: Move to acceptor class
     // FIXME: Bounded queue with pending accept requests? (like listen() backlog)
@@ -336,7 +335,7 @@ inline void multiplexer::start_receive()
     // Each socket may invoke only one receive call at a time.
     // The + 1 is there because a socket might start receiving while
     // executing the receive handler, thus the +1.
-    assert(receive_calls < static_cast<receive_calls_underlying_type>
+    assert(receive_calls < static_cast<decltype(receive_calls)>
                            (sockets.size() + acceptor_queue.size() + 1));
 
     if (receive_calls++ == 0)
@@ -349,7 +348,7 @@ inline void multiplexer::stop_receive()
 {
     // Each socket may invoke only one receive call at a time.
     assert(receive_calls > 0);
-    assert(receive_calls <= static_cast<receive_calls_underlying_type>
+    assert(receive_calls <= static_cast<decltype(receive_calls)>
                             (sockets.size() + acceptor_queue.size()));
 
     if (--receive_calls == 0)
@@ -406,7 +405,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         return;
     }
 
-    assert(receive_calls <= static_cast<receive_calls_underlying_type>
+    assert(receive_calls <= static_cast<decltype(receive_calls)>
                             (sockets.size() + acceptor_queue.size()));
     assert(receive_calls > 0);
 
