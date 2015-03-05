@@ -13,6 +13,7 @@
 
 #include <functional>
 #include <boost/asio/buffer.hpp>
+#include <boost/system/system_error.hpp>
 #include <maidsafe/crux/detail/buffer.hpp>
 
 namespace maidsafe { namespace crux { namespace detail {
