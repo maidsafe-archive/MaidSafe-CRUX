@@ -62,10 +62,10 @@ target_link_libraries(async_echo_server maidsafe_crux)
 ms_add_executable(async_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/async/echo_client.cpp)
 target_link_libraries(async_echo_client maidsafe_crux)
 
-ms_add_executable(coroutine_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/coroutine/echo_client.cpp)
+ms_add_executable(coroutine_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/coroutine/coroutine_echo_client.cpp)
 target_link_libraries(coroutine_echo_client maidsafe_crux ${BoostCoroutineLibs} ${BoostContextLibs})
 
-ms_add_executable(future_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/future/echo_client.cpp)
+ms_add_executable(future_echo_client "Examples/CRUX" ${PROJECT_SOURCE_DIR}/example/future/future_echo_client.cpp)
 target_link_libraries(future_echo_client maidsafe_crux)
 
 
