@@ -400,14 +400,15 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     if (!next_layer().is_open()) return;
 
-    if (remote_endpoint == local_loopback_endpoint() && receive_calls == 0) {
+    if (receive_calls == 0) {
+        // We've received our own empty message to fullfill the last receive
+        // request or we've received someone's else's message while doing so.
         discard_message();
         return;
     }
 
     assert(receive_calls <= static_cast<decltype(receive_calls)>
                             (sockets.size() + acceptor_queue.size()));
-    assert(receive_calls > 0);
 
     switch (error.value())
     {
@@ -441,7 +442,7 @@ void multiplexer::process_peek(boost::system::error_code error,
     std::size_t datagram_size = command.get();
 
     if (datagram_size < header_size) {
-        // Corrupted packet or someone is being silly.
+        // Our empty packet, corrupted packet or someone is being silly.
         discard_message();
         do_start_receive();
         return;
