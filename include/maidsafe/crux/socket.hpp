@@ -250,6 +250,7 @@ inline void socket::close() {
     // Already closed?
     if (!multiplexer) return;
 
+    keepalive_timer.stop();
     transmit_queue.shutdown();
 
     while (!receive_input_queue.empty()) {
