@@ -406,6 +406,10 @@ void socket::process_connect(ConnectHandler&& handler)
         assert(false);
         break;
 
+    case connectivity::closed:
+        handler(boost::asio::error::operation_aborted);
+        break;
+
     default:
         assert(false);
         break;
