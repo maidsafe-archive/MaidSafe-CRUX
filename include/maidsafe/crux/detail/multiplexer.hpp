@@ -332,11 +332,12 @@ inline multiplexer::endpoint_type multiplexer::local_loopback_endpoint() const {
 
 inline void multiplexer::start_receive()
 {
-    // Each socket may invoke only one receive call at a time.
-    // The + 1 is there because a socket might start receiving while
-    // executing the receive handler, thus the +1.
-    assert(receive_calls < static_cast<decltype(receive_calls)>
-                           (sockets.size() + acceptor_queue.size() + 1));
+    // Each socket and acceptor may invoke only one receive call at a time.
+    // Since both, a socket and an acceptor may invoke this function
+    // from inside a handler, and since the 'receive_calls' counter gets
+    // decreased only after handlers are executed we need to allow an
+    // error by 2.
+    assert(receive_calls < sockets.size() + acceptor_queue.size() + 2U);
 
     if (receive_calls++ == 0)
     {
@@ -348,8 +349,7 @@ inline void multiplexer::stop_receive()
 {
     // Each socket may invoke only one receive call at a time.
     assert(receive_calls > 0);
-    assert(receive_calls <= static_cast<decltype(receive_calls)>
-                            (sockets.size() + acceptor_queue.size()));
+    assert(receive_calls <= sockets.size() + acceptor_queue.size() + 1U);
 
     if (--receive_calls == 0)
     {
@@ -400,14 +400,14 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     if (!next_layer().is_open()) return;
 
-    if (remote_endpoint == local_loopback_endpoint() && receive_calls == 0) {
+    if (receive_calls == 0) {
+        // We've received our own empty message to fullfill the last receive
+        // request or we've received someone's else's message while doing so.
         discard_message();
         return;
     }
 
-    assert(receive_calls <= static_cast<decltype(receive_calls)>
-                            (sockets.size() + acceptor_queue.size()));
-    assert(receive_calls > 0);
+    assert(receive_calls <= sockets.size() + acceptor_queue.size() + 1U);
 
     switch (error.value())
     {
@@ -441,7 +441,7 @@ void multiplexer::process_peek(boost::system::error_code error,
     std::size_t datagram_size = command.get();
 
     if (datagram_size < header_size) {
-        // Corrupted packet or someone is being silly.
+        // Our empty packet, corrupted packet or someone is being silly.
         discard_message();
         do_start_receive();
         return;
@@ -571,6 +571,10 @@ void multiplexer::establish_connection(std::size_t payload_size,
         acceptor_queue.pop_front();
         process_accept(success,
                        std::get<2>(*input));
+        --receive_calls;
+    }
+    else {
+        ++receive_calls;
     }
 }
 
