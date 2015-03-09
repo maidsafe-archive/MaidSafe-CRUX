@@ -335,8 +335,7 @@ inline void multiplexer::start_receive()
     // Each socket may invoke only one receive call at a time.
     // The + 1 is there because a socket might start receiving while
     // executing the receive handler, thus the +1.
-    assert(receive_calls < static_cast<decltype(receive_calls)>
-                           (sockets.size() + acceptor_queue.size() + 2));
+    assert(receive_calls < sockets.size() + acceptor_queue.size() + 2U);
 
     if (receive_calls++ == 0)
     {
@@ -348,8 +347,7 @@ inline void multiplexer::stop_receive()
 {
     // Each socket may invoke only one receive call at a time.
     assert(receive_calls > 0);
-    assert(receive_calls <= static_cast<decltype(receive_calls)>
-                            (sockets.size() + acceptor_queue.size()) + 1);
+    assert(receive_calls <= sockets.size() + acceptor_queue.size() + 1U);
 
     if (--receive_calls == 0)
     {
@@ -407,8 +405,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         return;
     }
 
-    assert(receive_calls <= static_cast<decltype(receive_calls)>
-                            (sockets.size() + acceptor_queue.size()) + 1);
+    assert(receive_calls <= sockets.size() + acceptor_queue.size() + 1U);
 
     switch (error.value())
     {
