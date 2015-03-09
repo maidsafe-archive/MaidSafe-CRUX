@@ -332,9 +332,11 @@ inline multiplexer::endpoint_type multiplexer::local_loopback_endpoint() const {
 
 inline void multiplexer::start_receive()
 {
-    // Each socket may invoke only one receive call at a time.
-    // The + 1 is there because a socket might start receiving while
-    // executing the receive handler, thus the +1.
+    // Each socket and acceptor may invoke only one receive call at a time.
+    // Since both, a socket and an acceptor may invoke this function
+    // from inside a handler, and since the 'receive_calls' counter gets
+    // decreased only after handlers are executed we need to allow an
+    // error by 2.
     assert(receive_calls < sockets.size() + acceptor_queue.size() + 2U);
 
     if (receive_calls++ == 0)
