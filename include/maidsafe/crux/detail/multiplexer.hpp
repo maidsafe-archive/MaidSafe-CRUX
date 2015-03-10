@@ -439,6 +439,11 @@ void multiplexer::process_peek(boost::system::error_code error,
     next_layer_type::bytes_readable command(true);
     next_layer().io_control(command);
     std::size_t datagram_size = command.get();
+#ifdef __FreeBSD__
+    // FreeBSD's FIONREAD when asked of a UDP socket includes the UDP and IP headers which
+    // for IPv4 is 16 bytes and for IPv6 is 24 bytes
+    datagram_size -= remote_endpoint.address().is_v6() ? 24 : 16;
+#endif
 
     if (datagram_size < header_size) {
         // Our empty packet, corrupted packet or someone is being silly.
