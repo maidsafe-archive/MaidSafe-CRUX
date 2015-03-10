@@ -118,9 +118,9 @@ acceptor::async_accept(socket_type& socket,
             multiplexer->async_accept
                 (*this, socket,
                  [this, &socket, handler]
-                 (const boost::system::error_code& error)
+                 (const boost::system::error_code& error) mutable
                  {
-                     this->process_accept(error, socket, handler);
+                     this->process_accept(error, socket, std::move(handler));
                  });
             break;
 
