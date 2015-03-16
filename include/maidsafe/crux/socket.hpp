@@ -252,6 +252,7 @@ inline void socket::close() {
     // Already closed?
     if (!multiplexer) return;
 
+    keepalive_timer.stop();
     transmit_queue.shutdown();
 
     while (!receive_input_queue.empty()) {
@@ -405,6 +406,10 @@ void socket::process_connect(ConnectHandler&& handler)
 
     case connectivity::handshaking:
         assert(false);
+        break;
+
+    case connectivity::closed:
+        handler(boost::asio::error::operation_aborted);
         break;
 
     default:
