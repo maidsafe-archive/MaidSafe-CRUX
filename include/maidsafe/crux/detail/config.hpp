@@ -27,6 +27,10 @@
 # define MAIDSAFE_CRUX_DECL
 #endif
 
+#ifndef MAIDSAFE_CRUX_HEADERS_ONLY
+# define MAIDSAFE_CRUX_HEADERS_ONLY 0
+#endif
+
 #if !defined(MAIDSAFE_CRUX_SOURCE) && !defined(BOOST_ALL_NO_LIB) && \
     !defined(MAIDSAFE_CRUX_NO_LIB) && !MAIDSAFE_CRUX_HEADERS_ONLY
 
