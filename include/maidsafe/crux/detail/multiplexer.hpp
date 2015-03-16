@@ -358,8 +358,9 @@ inline void multiplexer::stop_receive()
         // from blocking, we fulfill the last receive request by
         // sending ourself an empty packet.
         auto self = shared_from_this();
+        static char empty_buffer_storage;
         next_layer().async_send_to
-            ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
+            ( boost::asio::buffer(&empty_buffer_storage, 1)
             , local_loopback_endpoint()
             , [self](boost::system::error_code, std::size_t) {});
     }
@@ -369,10 +370,11 @@ inline void multiplexer::do_start_receive()
 {
     auto self(shared_from_this());
 
-    // We need to read with at least one zero sized buffer to
+    // We need to read with at least one non zero sized buffer to
     // get the remote_endpoint information.
+    static char empty_buffer_storage;
     next_layer().async_receive_from
-        (boost::asio::buffer(static_cast<char*>(nullptr), 0),
+        (boost::asio::buffer(&empty_buffer_storage, sizeof(empty_buffer_storage)),
          next_remote_endpoint,
          std::remove_reference<decltype(next_layer())>::type::message_peek,
          [self]
@@ -387,8 +389,9 @@ inline void multiplexer::do_start_receive()
 inline void multiplexer::discard_message() {
     boost::system::error_code error;
     endpoint_type remote_endpoint;
+    static char empty_buffer_storage;
     next_layer().receive_from
-        ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
+        ( boost::asio::buffer(&empty_buffer_storage, 1)
         , remote_endpoint, next_layer_type::message_flags(), error );
 }
 
