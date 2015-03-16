@@ -11,6 +11,7 @@
 #ifndef MAIDSAFE_CRUX_DETAIL_HEADER_HPP
 #define MAIDSAFE_CRUX_DETAIL_HEADER_HPP
 
+#include <boost/optional.hpp>
 #include <maidsafe/crux/detail/decoder.hpp>
 #include <maidsafe/crux/detail/encoder.hpp>
 #include <maidsafe/crux/detail/header_constants.hpp>
