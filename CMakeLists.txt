@@ -72,8 +72,6 @@ endif()
 
 # FreeBSD needs you to link pthread (symlinks to the libthr 1:1 threading implementation) explicitly
 if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  # Temporarily disable kqueues on FreeBSD as we have enough problems with just the select() based reactor
-  add_definitions(-DBOOST_ASIO_DISABLE_KQUEUE=1)
   set(EXTRA_LIBS ${EXTRA_LIBS} pthread)
   set(TEST_LIBS ${TEST_LIBS} pthread)
 endif()
