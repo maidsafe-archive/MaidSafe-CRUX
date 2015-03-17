@@ -462,7 +462,11 @@ void multiplexer::process_peek(boost::system::error_code error,
         if (recv_buffers) {
             next_layer().receive_from
                 ( concatenate( asio::buffer(header_data)
-                               , std::move(*recv_buffers))
+                               // Temporary workaround: we can't move these buffers
+                               // because what we receive might not be a data packet.
+                               // TODO: Get the header data in the message peek call.
+                               //, std::move(*recv_buffers))
+                               , *recv_buffers)
                   , remote_endpoint
                   , next_layer_type::message_flags()
                   , error );
