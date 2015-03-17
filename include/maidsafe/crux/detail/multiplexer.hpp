@@ -202,10 +202,6 @@ inline void multiplexer::remove(socket_base *socket)
     assert(socket);
 
     sockets.erase(socket->remote_endpoint());
-
-    if (sockets.empty()) {
-        next_layer().close();
-    }
 }
 
 template <typename AcceptorType,
