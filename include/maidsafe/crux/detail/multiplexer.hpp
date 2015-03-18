@@ -111,6 +111,7 @@ private:
     void establish_connection(std::size_t, endpoint_type);
 
     void process_handshake(socket_base&, endpoint_type, std::uint16_t, detail::decoder&);
+
     void process_keepalive(socket_base&, std::uint16_t, detail::decoder&);
     void process_data(socket_base&,
                       std::uint16_t,
@@ -328,13 +329,6 @@ inline multiplexer::endpoint_type multiplexer::local_loopback_endpoint() const {
 
 inline void multiplexer::start_receive()
 {
-    // Each socket and acceptor may invoke only one receive call at a time.
-    // Since both, a socket and an acceptor may invoke this function
-    // from inside a handler, and since the 'receive_calls' counter gets
-    // decreased only after handlers are executed we need to allow an
-    // error by 2.
-    assert(receive_calls < sockets.size() + acceptor_queue.size() + 2U);
-
     if (receive_calls++ == 0)
     {
         do_start_receive();
@@ -343,9 +337,7 @@ inline void multiplexer::start_receive()
 
 inline void multiplexer::stop_receive()
 {
-    // Each socket may invoke only one receive call at a time.
     assert(receive_calls > 0);
-    assert(receive_calls <= sockets.size() + acceptor_queue.size() + 1U);
 
     if (--receive_calls == 0)
     {
@@ -403,8 +395,6 @@ void multiplexer::process_peek(boost::system::error_code error,
         return;
     }
 
-    assert(receive_calls <= sockets.size() + acceptor_queue.size() + 1U);
-
     switch (error.value())
     {
     case 0:
@@ -418,7 +408,6 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     case boost::asio::error::operation_aborted:
         discard_message();
-        --receive_calls;
         return;
 
     default:
@@ -504,7 +493,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         }
     }
 
-    if (--receive_calls > 0) {
+    if (receive_calls > 0) {
         do_start_receive();
     }
 }
@@ -571,10 +560,7 @@ void multiplexer::establish_connection(std::size_t payload_size,
         acceptor_queue.pop_front();
         process_accept(success,
                        std::get<2>(*input));
-        --receive_calls;
-    }
-    else {
-        ++receive_calls;
+        stop_receive();
     }
 }
 

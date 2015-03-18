@@ -119,7 +119,9 @@ private:
 
     virtual void process_handshake(sequence_type initial,
                                    endpoint_type remote_endpoint) override;
+
     virtual void process_acknowledgement(const ack_sequence_type& ack) override;
+
     virtual void process_data(const boost::system::error_code& error,
                               std::size_t payload_size,
                               std::shared_ptr<detail::buffer> payload,
@@ -181,8 +183,7 @@ private:
     bool is_expected_packet(sequence_type seq);
 
     void on_any_packet_received();
-    void idempotent_start_receive() override;
-    void idempotent_stop_receive();
+    void start_receive();
     void on_keepalive_timeout();
 
 private:
@@ -253,34 +254,32 @@ inline void socket::close() {
     keepalive_timer.stop();
     transmit_queue.shutdown();
 
+    auto m = multiplexer;
+
     while (!receive_input_queue.empty()) {
         auto handler = std::move(receive_input_queue.front()->handler);
         receive_input_queue.pop();
 
-        get_io_service().post([handler]() {
+
+        get_io_service().post([handler, m]() {
                 handler(boost::asio::error::operation_aborted, 0);
+                m->stop_receive();
                 });
     }
 
     get_service().remove(local_endpoint());
-    idempotent_stop_receive();
     multiplexer->remove(this);
     multiplexer = 0;
 }
 
-inline void socket::idempotent_stop_receive() {
-    if (!is_receiving) { return; }
-    is_receiving = false;
-    multiplexer->stop_receive();
-}
+inline void socket::start_receive() {
+    if (!is_receiving) {
+      is_receiving = true;
+      keepalive_timer.set_period(detail::constant::keepalive_timeout);
+      keepalive_timer.start();
+    }
 
-inline void socket::idempotent_start_receive() {
-    if (is_receiving) { return; }
-    is_receiving = true;
     multiplexer->start_receive();
-
-    keepalive_timer.set_period(detail::constant::keepalive_timeout);
-    keepalive_timer.start();
 }
 
 inline void socket::on_any_packet_received() {
@@ -534,7 +533,7 @@ socket::async_receive(const MutableBufferSequence& buffers,
 
             receive_input_queue.emplace(std::move(operation));
 
-            idempotent_start_receive();
+            start_receive();
         }
         else
         {
@@ -624,8 +623,6 @@ void socket::process_data(const boost::system::error_code& error,
     on_any_packet_received();
 
     if (!is_expected_packet(sequence_number)) {
-        // We were receiving, so we need to continue to do so.
-        idempotent_start_receive();
         return;
     }
 
@@ -657,10 +654,8 @@ void socket::process_data(const boost::system::error_code& error,
                        [] (boost::system::error_code) {});
 
         process_receive(error, payload_size, std::move(input->handler));
-    }
 
-    if (!receive_input_queue.empty() || !transmit_queue.empty()) {
-        idempotent_start_receive();
+        multiplexer->stop_receive();
     }
 }
 
@@ -669,7 +664,6 @@ void socket::process_keepalive(sequence_type sequence_number) {
     on_any_packet_received();
 
     if (!is_expected_packet(sequence_number)) {
-        idempotent_start_receive();
         return;
     }
 
@@ -700,14 +694,16 @@ void socket::send_handshake(endpoint_type remote_endpoint,
              });
     };
 
-    idempotent_start_receive();
+    start_receive();
+    auto m = multiplexer;
 
     transmit_queue.push( sequence.value()
                        , 0
                        , send_step
-                       , [handler]
+                       , [handler, m]
                          (boost::system::error_code error, std::size_t) mutable {
                            handler(error);
+                           m->stop_receive();
                          });
 }
 
@@ -751,12 +747,17 @@ void socket::send_data(endpoint_type remote_endpoint,
              });
     };
 
-    idempotent_start_receive();
+    start_receive();
+    auto m = multiplexer;
 
     transmit_queue.push( sequence.value()
                        , boost::asio::buffer_size(buffers)
                        , send_step
-                       , handler);
+                       , [handler, m]( boost::system::error_code error
+                                     , std::size_t size) mutable {
+                         handler(error, size);
+                         m->stop_receive();
+                       });
 }
 
 inline
@@ -855,11 +856,6 @@ void socket::process_acknowledgement(const ack_sequence_type& ack)
     }
 
     transmit_queue.apply_ack(ack.value());
-
-    if (!transmit_queue.empty()) {
-        idempotent_start_receive();
-    }
-
 }
 
 template <typename Handler,
