@@ -542,7 +542,7 @@ BOOST_AUTO_TEST_CASE(keepalive_timeout)
         , [&](error_code error) {
             BOOST_VERIFY(!error);
             tested_client = true;
-            //client_socket.close();  // NOTE TEMPORARY WORKAROUND PENDING MAID-885
+            client_socket.close();
           });
 
     ios.run();

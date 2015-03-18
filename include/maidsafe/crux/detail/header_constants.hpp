@@ -37,6 +37,7 @@ const std::uint16_t mask_type = 0XF800;
 const std::uint16_t mask_retransmission = 0x0003;
 const std::uint16_t mask_ack = 0x000C;
 
+const std::uint16_t type_empty = 0x0000;
 const std::uint16_t type_data = 0xC000;
 const std::uint16_t type_handshake = 0xC800;
 const std::uint16_t type_shutdown = 0xD000;
