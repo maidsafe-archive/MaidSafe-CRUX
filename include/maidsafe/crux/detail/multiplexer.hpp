@@ -448,6 +448,13 @@ void multiplexer::process_new_message(boost::system::error_code error)
         return;
     }
 
+    // Peek the remote endpoint
+    endpoint_type remote_endpoint;
+    auto empty_buffer(boost::asio::buffer(static_cast<char*>(nullptr), 0));
+    next_layer().receive_from
+        ( empty_buffer
+          , remote_endpoint
+          , std::remove_reference<decltype(next_layer())>::type::message_peek );
 
     next_layer_type::bytes_readable command(true);
     next_layer().io_control(command);
@@ -467,14 +474,6 @@ void multiplexer::process_new_message(boost::system::error_code error)
 
     header::data_type header_data;
     std::size_t payload_size = datagram_size - header_size;
-
-    // Peek the remote endpoint
-    endpoint_type remote_endpoint;
-    auto empty_buffer(boost::asio::buffer(static_cast<char*>(nullptr), 0));
-    next_layer().receive_from
-        ( empty_buffer
-          , remote_endpoint
-          , std::remove_reference<decltype(next_layer())>::type::message_peek );
     auto recipient = sockets.find(remote_endpoint);
 
     // FIXME: gather-read (header, body)
