@@ -11,6 +11,8 @@
 #ifndef MAIDSAFE_CRUX_ENDPOINT_HPP
 #define MAIDSAFE_CRUX_ENDPOINT_HPP
 
+#include <maidsafe/crux/detail/config.hpp>
+
 #include <boost/asio/ip/udp.hpp>
 
 namespace maidsafe

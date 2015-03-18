@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(concatenate_const_const)
         ++size;
     }
 
-    BOOST_REQUIRE_EQUAL(2, size);
+    BOOST_REQUIRE_EQUAL(2U, size);
 
     BOOST_REQUIRE_EQUAL( a5.size() + a10.size()
                        , asio::buffer_size(concatenated));
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(concatenate_const_mutable)
         ++size;
     }
 
-    BOOST_REQUIRE_EQUAL(2, size);
+    BOOST_REQUIRE_EQUAL(2U, size);
 
     BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
                        , asio::buffer_size(concatenated));
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(concatenate_mutable_const)
         ++size;
     }
 
-    BOOST_REQUIRE_EQUAL(2, size);
+    BOOST_REQUIRE_EQUAL(2U, size);
 
     BOOST_REQUIRE_EQUAL( a5.size() + a10.size()
                        , asio::buffer_size(concatenated));
@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE(concatenate_mutable_mutable)
         ++size;
     }
 
-    BOOST_REQUIRE_EQUAL(2, size);
+    BOOST_REQUIRE_EQUAL(2U, size);
 
     BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
                        , asio::buffer_size(concatenated));
@@ -116,8 +116,8 @@ BOOST_AUTO_TEST_CASE(concatenate_move)
 
     concatenate(std::move(v1), v2);
 
-    BOOST_REQUIRE_EQUAL(0, v1.size());
-    BOOST_REQUIRE_EQUAL(20, v2.size());
+    BOOST_REQUIRE_EQUAL(0U, v1.size());
+    BOOST_REQUIRE_EQUAL(20U, v2.size());
 }
 
 BOOST_AUTO_TEST_CASE(concatenate_copy)
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(concatenate_copy)
         ++size;
     }
 
-    BOOST_REQUIRE_EQUAL(2, size);
+    BOOST_REQUIRE_EQUAL(2U, size);
 
     BOOST_REQUIRE_EQUAL( a10.size() + a20.size()
                        , asio::buffer_size(concatenated));

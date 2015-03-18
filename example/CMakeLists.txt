@@ -33,7 +33,7 @@ target_link_libraries(async_echo_client crux ${EXTRA_LIBS})
 ###############################################################################
 
 add_executable(coroutine_echo_client
-  coroutine/echo_client.cpp
+  coroutine/coroutine_echo_client.cpp
 )
 add_dependencies(coroutine_echo_client crux)
 target_link_libraries(coroutine_echo_client crux ${EXTRA_LIBS})
@@ -46,7 +46,7 @@ endif()
 ###############################################################################
 
 add_executable(future_echo_client
-  future/echo_client.cpp
+  future/future_echo_client.cpp
 )
 add_dependencies(future_echo_client crux)
 target_link_libraries(future_echo_client crux ${EXTRA_LIBS})
