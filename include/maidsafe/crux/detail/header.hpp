@@ -32,7 +32,7 @@ struct empty {
 
     empty() {}
 
-    empty(std::uint16_t type, detail::decoder& decoder)
+    empty(std::uint16_t type, detail::decoder&)
     {
         assert((type & header::constant::mask_type) == header::constant::type_empty);
     }
