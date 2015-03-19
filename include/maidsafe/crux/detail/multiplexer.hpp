@@ -443,6 +443,11 @@ void multiplexer::process_peek(boost::system::error_code error,
     header::data_type header_data;
     std::size_t payload_size = datagram_size - header_size;
 
+    // Temporarily increase the count by one to prevent callbacks
+    // from decreasing it to zero and thus sending ourself an empty packet.
+    // It shall be decreased back by one at the end of this function.
+    ++receive_calls;
+
     // FIXME: gather-read (header, body)
     // FIXME: Make socket.receive_from commands async.
     if (recipient == sockets.end())
@@ -501,7 +506,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         }
     }
 
-    if (receive_calls > 0) {
+    if (--receive_calls > 0) {
         do_start_receive();
     }
 }
