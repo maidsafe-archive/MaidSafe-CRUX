@@ -139,6 +139,7 @@ private:
     socket_map sockets;
 
     std::atomic<std::size_t> receive_calls;
+    std::atomic<bool>        is_receiving;
 
     // FIXME: Move to acceptor class
     // FIXME: Bounded queue with pending accept requests? (like listen() backlog)
@@ -179,6 +180,7 @@ std::shared_ptr<multiplexer> multiplexer::create(Types&&... args)
 inline multiplexer::multiplexer(next_layer_type&& udp_socket)
     : udp_socket(std::move(udp_socket))
     , receive_calls(0)
+    , is_receiving(false)
 {
 }
 
@@ -355,6 +357,10 @@ inline void multiplexer::stop_receive()
 
 inline void multiplexer::do_start_receive()
 {
+    if (is_receiving.exchange(true)) {
+      return;
+    }
+
     auto self(shared_from_this());
 
     // We need to read with at least one zero sized buffer to
@@ -385,6 +391,8 @@ void multiplexer::process_peek(boost::system::error_code error,
                                endpoint_type remote_endpoint)
 {
     namespace asio = boost::asio;
+
+    is_receiving.store(false);
 
     if (!next_layer().is_open()) return;
 
