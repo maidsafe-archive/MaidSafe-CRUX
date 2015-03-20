@@ -451,12 +451,14 @@ void multiplexer::process_new_message(boost::system::error_code error)
         return;
     }
 
-    // Peek the remote endpoint
+    // Peek the remote endpoint. Windows will return a buffers too small error when fed
+    // an empty buffer, but it still fills in remote_endpoint so we sink the error.
     auto empty_buffer(boost::asio::buffer(static_cast<char*>(nullptr), 0));
     next_layer().receive_from
         ( empty_buffer
           , remote_endpoint
-          , std::remove_reference<decltype(next_layer())>::type::message_peek );
+          , std::remove_reference<decltype(next_layer())>::type::message_peek
+          , error );
 
     next_layer_type::bytes_readable command(true);
     next_layer().io_control(command);

@@ -62,6 +62,8 @@ endif()
 if (NOT ${Boost_FOUND})
   message(FATAL_ERROR "${Boost_ERROR_REASON}\nNote on Windows you must stage Boost like this for cmake to find it:\n    b2 link=shared stage\nAnd set the environment variable BOOST_ROOT to the base of your Boost installation.")
 endif()
+# Disable boost auto library link
+add_definitions(-DMAIDSAFE_CRUX_NO_LIB=1)
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
