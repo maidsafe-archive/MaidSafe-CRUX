@@ -148,6 +148,8 @@ private:
     using accept_handler_type = std::function<void (const boost::system::error_code&)>;
     using accept_input_type = std::tuple<acceptor*, socket_base *, accept_handler_type>;
     std::list<std::unique_ptr<accept_input_type>> acceptor_queue;
+
+    endpoint_type next_remote_endpoint;
 };
 
 } // namespace detail
@@ -411,6 +413,7 @@ inline
 void multiplexer::process_new_message(boost::system::error_code error)
 {
     namespace asio = boost::asio;
+    endpoint_type &remote_endpoint = next_remote_endpoint;
 
     if (!next_layer().is_open()) return;
 
@@ -449,7 +452,6 @@ void multiplexer::process_new_message(boost::system::error_code error)
     }
 
     // Peek the remote endpoint
-    endpoint_type remote_endpoint;
     auto empty_buffer(boost::asio::buffer(static_cast<char*>(nullptr), 0));
     next_layer().receive_from
         ( empty_buffer
@@ -459,7 +461,7 @@ void multiplexer::process_new_message(boost::system::error_code error)
     next_layer_type::bytes_readable command(true);
     next_layer().io_control(command);
     std::size_t datagram_size = command.get();
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__APPLE__)
     // FreeBSD's FIONREAD when asked of a UDP socket includes the UDP and IP headers which
     // for IPv4 is 16 bytes and for IPv6 is 24 bytes
     datagram_size -= remote_endpoint.address().is_v6() ? 24 : 16;
@@ -474,10 +476,16 @@ void multiplexer::process_new_message(boost::system::error_code error)
 
     header::data_type header_data;
     std::size_t payload_size = datagram_size - header_size;
+    // payload_size on BSD/OS X is all pending datagrams on the socket, so cap to 64k
+    if (payload_size > 65536)
+      payload_size = 65536;
     auto recipient = sockets.find(remote_endpoint);
 
     // FIXME: gather-read (header, body)
     // FIXME: Make socket.receive_from commands async.
+    // FIXME: Should really be using aio_read(socket) on BSD/OS X or recvmmsg() on Linux
+    //        to fetch multiple datagrams in a single syscall in order 
+    //        to completely drain the socket dry before returning to ASIO sleep
     if (recipient == sockets.end())
     {
         establish_connection(payload_size, remote_endpoint);
@@ -490,7 +498,7 @@ void multiplexer::process_new_message(boost::system::error_code error)
         std::shared_ptr<buffer_type> payload;
 
         if (recv_buffers) {
-            next_layer().receive_from
+            payload_size = next_layer().receive_from
                 ( concatenate( asio::buffer(header_data)
                                , std::move(*recv_buffers))
                   , remote_endpoint
@@ -500,13 +508,14 @@ void multiplexer::process_new_message(boost::system::error_code error)
         else {
             payload = std::make_shared<buffer_type>(payload_size);
 
-            next_layer().receive_from
+            payload_size = next_layer().receive_from
                 ( concatenate( asio::buffer(header_data)
                                , asio::buffer(*payload))
                   , remote_endpoint
                   , next_layer_type::message_flags()
                   , error );
         }
+        payload_size -= header_size;
 
         detail::decoder decoder(header_data.data(), header_data.data() + header_data.size());
         auto type = decoder.get<std::uint16_t>();

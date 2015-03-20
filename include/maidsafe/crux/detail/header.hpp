@@ -34,6 +34,7 @@ struct empty {
 
     empty(std::uint16_t type, detail::decoder&)
     {
+        static_cast<void>(type);
         assert((type & header::constant::mask_type) == header::constant::type_empty);
     }
 

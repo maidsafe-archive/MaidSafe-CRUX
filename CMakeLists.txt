@@ -21,8 +21,9 @@ set(CRUX_BUILD_DIR ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CRUX_BUILD_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${CRUX_BUILD_DIR}/bin)
 
-if (CMAKE_COMPILER_IS_GNUCXX)
-  set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g -Wall")
+if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER MATCHES ".*clang.*")
+  set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g")
+  add_definitions(-Wall -Wextra -Werror)
 endif()
 #add_definitions(-fmax-errors=1) # gcc
 #add_definitions(-ferror-limit=1) # clang
