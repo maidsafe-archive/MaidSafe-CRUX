@@ -70,6 +70,10 @@ public:
                       SocketType&,
                       AcceptHandler&& handler);
 
+    template <typename ConnectHandler>
+    void send_empty(const endpoint_type& endpoint,
+                    ConnectHandler&& handler);
+
     template <typename ConstBufferSequence,
               typename WriteHandler>
     void send_data(ConstBufferSequence&& buffers,
@@ -106,7 +110,7 @@ private:
 
     void do_start_receive();
 
-    void process_peek(boost::system::error_code, endpoint_type);
+    void process_new_message(boost::system::error_code);
 
     void establish_connection(std::size_t, endpoint_type);
 
@@ -252,6 +256,24 @@ void multiplexer::process_accept(const boost::system::error_code& error,
 }
 
 template <typename ConnectHandler>
+void multiplexer::send_empty(const endpoint_type& remote_endpoint,
+                             ConnectHandler&& handler)
+{
+    static std::array<std::uint8_t, 2> header;
+    detail::encoder encoder(header.data(), header.size());
+    header::empty().encode(encoder);
+    next_layer().async_send_to
+        (boost::asio::buffer(header),
+         remote_endpoint,
+         [handler] (boost::system::error_code error, std::size_t length) mutable
+         {
+             assert(length == 2);
+             static_cast<void>(length);
+             handler(error);
+         });
+}
+
+template <typename ConnectHandler>
 void multiplexer::send_handshake(const endpoint_type& remote_endpoint,
                                  sequence_type initial,
                                  boost::optional<ack_sequence_type> ack,
@@ -358,10 +380,8 @@ inline void multiplexer::stop_receive()
         // from blocking, we fulfill the last receive request by
         // sending ourself an empty packet.
         auto self = shared_from_this();
-        next_layer().async_send_to
-            ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
-            , local_loopback_endpoint()
-            , [self](boost::system::error_code, std::size_t) {});
+        send_empty(local_loopback_endpoint()
+                  , [self](boost::system::error_code) {});
     }
 }
 
@@ -369,39 +389,36 @@ inline void multiplexer::do_start_receive()
 {
     auto self(shared_from_this());
 
-    // We need to read with at least one zero sized buffer to
-    // get the remote_endpoint information.
-    next_layer().async_receive_from
-        (boost::asio::buffer(static_cast<char*>(nullptr), 0),
-         next_remote_endpoint,
-         std::remove_reference<decltype(next_layer())>::type::message_peek,
+    next_layer().async_receive
+        (boost::asio::null_buffers(),
          [self]
          (boost::system::error_code error, std::size_t /*size*/) mutable
          {
-            // The size parameter is useless here because what we get
-            // is min(buffer_size, datagram_size) and our buffer size is 0.
-            self->process_peek(error, self->next_remote_endpoint);
+            self->process_new_message(error);
          });
 }
 
 inline void multiplexer::discard_message() {
+    // Read the minimum possible to throw away the datagram. Make this
+    // a dedicated static buffer to eliminate any races
+    static char empty_buffer_storage;
     boost::system::error_code error;
     endpoint_type remote_endpoint;
     next_layer().receive_from
-        ( boost::asio::buffer(static_cast<char*>(nullptr), 0)
+        ( boost::asio::buffer(&empty_buffer_storage, 1)
         , remote_endpoint, next_layer_type::message_flags(), error );
 }
 
 inline
-void multiplexer::process_peek(boost::system::error_code error,
-                               endpoint_type remote_endpoint)
+void multiplexer::process_new_message(boost::system::error_code error)
 {
     namespace asio = boost::asio;
+    endpoint_type &remote_endpoint = next_remote_endpoint;
 
     if (!next_layer().is_open()) return;
 
     if (receive_calls == 0) {
-        // We've received our own empty message to fullfill the last receive
+        // We've received our own empty message to fulfil the last receive
         // request or we've received someone's else's message while doing so.
         discard_message();
         return;
@@ -434,12 +451,19 @@ void multiplexer::process_peek(boost::system::error_code error,
         return;
     }
 
-    auto recipient = sockets.find(remote_endpoint);
+    // Peek the remote endpoint. Windows will return a buffers too small error when fed
+    // an empty buffer, but it still fills in remote_endpoint so we sink the error.
+    auto empty_buffer(boost::asio::buffer(static_cast<char*>(nullptr), 0));
+    next_layer().receive_from
+        ( empty_buffer
+          , remote_endpoint
+          , std::remove_reference<decltype(next_layer())>::type::message_peek
+          , error );
 
     next_layer_type::bytes_readable command(true);
     next_layer().io_control(command);
     std::size_t datagram_size = command.get();
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__APPLE__)
     // FreeBSD's FIONREAD when asked of a UDP socket includes the UDP and IP headers which
     // for IPv4 is 16 bytes and for IPv6 is 24 bytes
     datagram_size -= remote_endpoint.address().is_v6() ? 24 : 16;
@@ -454,9 +478,16 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     header::data_type header_data;
     std::size_t payload_size = datagram_size - header_size;
+    // payload_size on BSD/OS X is all pending datagrams on the socket, so cap to 64k
+    if (payload_size > 65536)
+      payload_size = 65536;
+    auto recipient = sockets.find(remote_endpoint);
 
     // FIXME: gather-read (header, body)
     // FIXME: Make socket.receive_from commands async.
+    // FIXME: Should really be using aio_read(socket) on BSD/OS X or recvmmsg() on Linux
+    //        to fetch multiple datagrams in a single syscall in order 
+    //        to completely drain the socket dry before returning to ASIO sleep
     if (recipient == sockets.end())
     {
         establish_connection(payload_size, remote_endpoint);
@@ -469,7 +500,7 @@ void multiplexer::process_peek(boost::system::error_code error,
         std::shared_ptr<buffer_type> payload;
 
         if (recv_buffers) {
-            next_layer().receive_from
+            payload_size = next_layer().receive_from
                 ( concatenate( asio::buffer(header_data)
                                , std::move(*recv_buffers))
                   , remote_endpoint
@@ -479,13 +510,14 @@ void multiplexer::process_peek(boost::system::error_code error,
         else {
             payload = std::make_shared<buffer_type>(payload_size);
 
-            next_layer().receive_from
+            payload_size = next_layer().receive_from
                 ( concatenate( asio::buffer(header_data)
                                , asio::buffer(*payload))
                   , remote_endpoint
                   , next_layer_type::message_flags()
                   , error );
         }
+        payload_size -= header_size;
 
         detail::decoder decoder(header_data.data(), header_data.data() + header_data.size());
         auto type = decoder.get<std::uint16_t>();

@@ -21,8 +21,9 @@ set(CRUX_BUILD_DIR ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CRUX_BUILD_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${CRUX_BUILD_DIR}/bin)
 
-if (CMAKE_COMPILER_IS_GNUCXX)
-  set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g -Wall")
+if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER MATCHES ".*clang.*")
+  set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g")
+  add_definitions(-Wall -Wextra -Werror)
 endif()
 #add_definitions(-fmax-errors=1) # gcc
 #add_definitions(-ferror-limit=1) # clang
@@ -61,6 +62,8 @@ endif()
 if (NOT ${Boost_FOUND})
   message(FATAL_ERROR "${Boost_ERROR_REASON}\nNote on Windows you must stage Boost like this for cmake to find it:\n    b2 link=shared stage\nAnd set the environment variable BOOST_ROOT to the base of your Boost installation.")
 endif()
+# Disable boost auto library link
+add_definitions(-DMAIDSAFE_CRUX_NO_LIB=1)
 include_directories(BEFORE ${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})
 set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_LIBRARIES})
@@ -72,8 +75,6 @@ endif()
 
 # FreeBSD needs you to link pthread (symlinks to the libthr 1:1 threading implementation) explicitly
 if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  # Temporarily disable kqueues on FreeBSD as we have enough problems with just the select() based reactor
-  add_definitions(-DBOOST_ASIO_DISABLE_KQUEUE=1)
   set(EXTRA_LIBS ${EXTRA_LIBS} pthread)
   set(TEST_LIBS ${TEST_LIBS} pthread)
 endif()

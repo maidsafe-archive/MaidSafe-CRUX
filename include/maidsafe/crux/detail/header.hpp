@@ -28,6 +28,21 @@ namespace header
 
 using sequence_type = sequence_number<std::uint32_t>;
 
+struct empty {
+
+    empty() {}
+
+    empty(std::uint16_t type, detail::decoder&)
+    {
+        static_cast<void>(type);
+        assert((type & header::constant::mask_type) == header::constant::type_empty);
+    }
+
+    void encode(detail::encoder& encoder) const {
+        encoder.put<std::uint16_t>(header::constant::type_empty);
+    }
+};
+
 struct handshake {
     std::size_t                    retransmission_count;
     std::uint16_t                  version;
