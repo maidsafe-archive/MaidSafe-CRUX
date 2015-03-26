@@ -766,6 +766,10 @@ void socket::process_handshake(sequence_type initial,
 {
     on_any_packet_received();
 
+    if (!is_expected_packet(initial)) {
+        return;
+    }
+
     sequence_history.insert(initial);
 
     switch (state())
