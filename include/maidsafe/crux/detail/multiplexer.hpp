@@ -392,7 +392,7 @@ void multiplexer::process_peek(boost::system::error_code error,
 {
     namespace asio = boost::asio;
 
-    is_receiving.store(false);
+    is_receiving = false;
 
     if (!next_layer().is_open()) return;
 
