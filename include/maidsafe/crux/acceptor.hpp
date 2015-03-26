@@ -89,7 +89,8 @@ inline acceptor::~acceptor()
 
 inline void acceptor::close() {
     if (!multiplexer) return;
-    multiplexer->disable_accept_requests_from(*this);
+    auto m = std::move(multiplexer);
+    m->disable_accept_requests_from(*this);
 }
 
 template <typename CompletionToken>

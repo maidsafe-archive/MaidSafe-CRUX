@@ -16,6 +16,7 @@
 #include <memory>
 #include <map>
 #include <random>
+#include <mutex>
 #include <boost/asio/io_service.hpp>
 #include <maidsafe/crux/endpoint.hpp>
 
@@ -55,6 +56,7 @@ private:
     virtual void shutdown_service() {}
 
 private:
+    std::mutex      mutex;
     multiplexer_map multiplexers;
 
     std::mt19937 generator;
@@ -88,7 +90,8 @@ inline std::shared_ptr<detail::multiplexer> service::add(endpoint_type local_end
 {
     using next_layer_type = detail::multiplexer::next_layer_type;
 
-    // FIXME: Thread-safety
+    std::lock_guard<std::mutex> guard(mutex);
+
     std::shared_ptr<detail::multiplexer> result;
     auto where = multiplexers.lower_bound(local_endpoint);
     if ((where == multiplexers.end()) || (multiplexers.key_comp()(local_endpoint, where->first)))
@@ -128,7 +131,8 @@ inline std::shared_ptr<detail::multiplexer> service::add(endpoint_type local_end
 
 inline void service::remove(const endpoint_type& local_endpoint)
 {
-    // FIXME: Thread-safety
+    std::lock_guard<std::mutex> guard(mutex);
+
     auto where = multiplexers.find(local_endpoint);
     if (where != multiplexers.end())
     {

@@ -73,7 +73,6 @@ protected:
                               sequence_type) = 0;
 
     virtual void process_keepalive(sequence_type) = 0;
-    virtual void idempotent_start_receive() = 0;
 
     virtual void close() = 0;
 
