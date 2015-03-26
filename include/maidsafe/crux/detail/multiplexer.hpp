@@ -445,8 +445,22 @@ void multiplexer::process_peek(boost::system::error_code error,
 
     // Temporarily increase the count by one to prevent callbacks
     // from decreasing it to zero and thus sending ourself an empty packet.
-    // It shall be decreased back by one at the end of this function.
-    ++receive_calls;
+    // It shall be decreased back by one when this function finishes.
+    struct raii {
+        multiplexer& self;
+
+        raii(multiplexer& self) : self(self)
+        {
+            ++self.receive_calls;
+        }
+
+        ~raii()
+        {
+            if (--self.receive_calls > 0) {
+                self.do_start_receive();
+            }
+        }
+    } temporary_increase_receive_calls(*this);
 
     // FIXME: gather-read (header, body)
     // FIXME: Make socket.receive_from commands async.
@@ -504,10 +518,6 @@ void multiplexer::process_peek(boost::system::error_code error,
             assert(false);
             break;
         }
-    }
-
-    if (--receive_calls > 0) {
-        do_start_receive();
     }
 }
 
