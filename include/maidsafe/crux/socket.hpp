@@ -254,16 +254,16 @@ inline void socket::close() {
     keepalive_timer.stop();
     transmit_queue.shutdown();
 
-    auto m = multiplexer;
+    auto pin = multiplexer;
 
     while (!receive_input_queue.empty()) {
         auto handler = std::move(receive_input_queue.front()->handler);
         receive_input_queue.pop();
 
 
-        get_io_service().post([handler, m]() {
+        get_io_service().post([handler, pin]() {
                 handler(boost::asio::error::operation_aborted, 0);
-                m->stop_receive();
+                pin->stop_receive();
                 });
     }
 
@@ -695,15 +695,15 @@ void socket::send_handshake(endpoint_type remote_endpoint,
     };
 
     start_receive();
-    auto m = multiplexer;
+    auto pin = multiplexer;
 
     transmit_queue.push( sequence.value()
                        , 0
                        , send_step
-                       , [handler, m]
+                       , [handler, pin]
                          (boost::system::error_code error, std::size_t) mutable {
                            handler(error);
-                           m->stop_receive();
+                           pin->stop_receive();
                          });
 }
 
@@ -748,15 +748,15 @@ void socket::send_data(endpoint_type remote_endpoint,
     };
 
     start_receive();
-    auto m = multiplexer;
+    auto pin = multiplexer;
 
     transmit_queue.push( sequence.value()
                        , boost::asio::buffer_size(buffers)
                        , send_step
-                       , [handler, m]( boost::system::error_code error
-                                     , std::size_t size) mutable {
+                       , [handler, pin]( boost::system::error_code error
+                                       , std::size_t size) mutable {
                          handler(error, size);
-                         m->stop_receive();
+                         pin->stop_receive();
                        });
 }
 
